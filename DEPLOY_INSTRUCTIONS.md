@@ -14,74 +14,62 @@
 ✅ Admin can make other users admin
 ✅ Admin can disable any account (except their own)
 ✅ Admin can change any user's admin status
+✅ Currency support (10+ currencies with custom symbols)
 ✅ Modern logo integrated throughout
 ✅ Clean, professional UI
+✅ docker-compose.yml INCLUDED in package
 
 ## Deployment Steps
 
-### 1. On Your Mac - Extract and Push to GitHub
+### 1. On Your Mac - Push to GitHub
 
 ```bash
 cd ~/Downloads
-tar -xzf policy-tracker-full.tar.gz
+tar -xzf policy-tracker-full-with-currency.tar.gz
 cd policy-tracker-full
 
-# Initialize git
+# Initialize git and push
 git init
 git add .
 git commit -m "Complete Policy Tracker with all features"
-
-# Add remote and push (force to replace everything)
 git remote add origin https://github.com/adrianchatto/insurance-tracker.git
 git branch -m master main
 git push -u origin main --force
 ```
 
-### 2. On Your Server - Update Docker
+### 2. On Your Server - Deploy with Docker
 
-SSH to your server:
+**Option A: Using the included docker-compose.yml**
+
+SSH to your server and copy the docker-compose.yml:
 ```bash
 ssh adrianchatto@172.22.30.10
+
+# Create directory
+sudo mkdir -p /data/compose/7
+
+# Copy docker-compose.yml from your local machine
+# (SCP it or copy/paste content)
 ```
 
-Update the docker-compose.yml in Portainer or via file:
+From your Mac, SCP the file:
 ```bash
-sudo nano /data/compose/7/docker-compose.yml
-```
-
-Use this docker-compose.yml:
-```yaml
-version: '3.8'
-
-services:
-  policy-tracker:
-    image: python:3.11-slim
-    container_name: policy-tracker
-    command: sh -c "apt-get update && apt-get install -y git &&
-       rm -rf /app/code &&
-       git clone https://github.com/adrianchatto/insurance-tracker.git /app/code &&
-       cd /app/code &&
-       pip install --no-cache-dir -r requirements.txt &&
-       cp -r /app/code/* /app/ &&
-       python app.py"
-    ports:
-      - "5000:5000"
-    volumes:
-      - ./data:/app/data
-    environment:
-      - SECRET_KEY=change-this-to-a-random-secret-key-in-production
-      - DB_PATH=/app/data/policies.db
-    restart: unless-stopped
-    working_dir: /app
-```
-
-Create data directory and restart:
-```bash
+scp ~/Downloads/policy-tracker-full/docker-compose.yml adrianchatto@172.22.30.10:/tmp/
+ssh adrianchatto@172.22.30.10
+sudo mv /tmp/docker-compose.yml /data/compose/7/
 sudo mkdir -p /data/compose/7/data
 cd /data/compose/7
-docker-compose down
-docker-compose up -d
+docker compose up -d
 ```
+
+**Option B: Using Portainer**
+
+1. Go to Portainer in your browser
+2. Click "Stacks"
+3. Click "Add Stack"
+4. Name it "policy-tracker"
+5. Paste the content from `docker-compose.yml` (included in the package)
+6. Click "Deploy the stack"
 
 ### 3. Access and Configure
 
@@ -89,7 +77,8 @@ docker-compose up -d
 2. Login with: `admin@policytracker.local` / `admin`
 3. Go to Account Settings and change your password
 4. Go to Account Settings and update email to your real email
-5. Add your policies!
+5. Go to Settings and set your currency
+6. Add your policies!
 
 ## New Features Guide
 

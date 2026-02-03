@@ -57,10 +57,10 @@
                         {% endif %}
                     </td>
                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {% if policy.monthly_amount %}${{ "%.2f"|format(policy.monthly_amount) }}{% else %}-{% endif %}
+                        {{ policy.monthly_amount | format_currency }}
                     </td>
                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {% if policy.annual_amount %}${{ "%.2f"|format(policy.annual_amount) }}{% else %}-{% endif %}
+                        {{ policy.annual_amount | format_currency }}
                     </td>
                     <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
                         {% if policy.insurer_website %}

@@ -1,0 +1,22 @@
+version: '3.8'
+
+services:
+  policy-tracker:
+    image: python:3.11-slim
+    container_name: policy-tracker
+    command: sh -c "apt-get update && apt-get install -y git &&
+       rm -rf /app/code &&
+       git clone https://github.com/adrianchatto/insurance-tracker.git /app/code &&
+       cd /app/code &&
+       pip install --no-cache-dir -r requirements.txt &&
+       cp -r /app/code/* /app/ &&
+       python app.py"
+    ports:
+      - "5000:5000"
+    volumes:
+      - ./data:/app/data
+    environment:
+      - SECRET_KEY=change-this-to-a-random-secret-key-in-production
+      - DB_PATH=/app/data/policies.db
+    restart: unless-stopped
+    working_dir: /app

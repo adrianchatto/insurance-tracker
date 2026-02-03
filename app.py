@@ -82,7 +82,9 @@ def init_db():
         'smtp_username': '',
         'smtp_password': '',
         'smtp_from_email': '',
-        'smtp_use_tls': 'true'
+        'smtp_use_tls': 'true',
+        'currency_symbol': '$',
+        'currency_code': 'USD'
     }
     
     for key, value in default_settings.items():
@@ -423,6 +425,8 @@ def settings():
         smtp_password = request.form.get('smtp_password', '')
         smtp_from_email = request.form.get('smtp_from_email', '')
         smtp_use_tls = 'smtp_use_tls' in request.form
+        currency_symbol = request.form.get('currency_symbol', '$')
+        currency_code = request.form.get('currency_code', 'USD')
         
         set_setting('notification_days', notification_days)
         set_setting('notification_enabled', 'true' if notification_enabled else 'false')
@@ -433,6 +437,8 @@ def settings():
             set_setting('smtp_password', smtp_password)
         set_setting('smtp_from_email', smtp_from_email)
         set_setting('smtp_use_tls', 'true' if smtp_use_tls else 'false')
+        set_setting('currency_symbol', currency_symbol)
+        set_setting('currency_code', currency_code)
         
         flash('Settings updated successfully!', 'success')
         return redirect(url_for('settings'))
@@ -444,7 +450,9 @@ def settings():
         'smtp_port': get_setting('smtp_port', '587'),
         'smtp_username': get_setting('smtp_username', ''),
         'smtp_from_email': get_setting('smtp_from_email', ''),
-        'smtp_use_tls': get_setting('smtp_use_tls', 'true') == 'true'
+        'smtp_use_tls': get_setting('smtp_use_tls', 'true') == 'true',
+        'currency_symbol': get_setting('currency_symbol', '$'),
+        'currency_code': get_setting('currency_code', 'USD')
     }
     
     return render_template('settings.html', settings=current_settings)
@@ -642,3 +650,13 @@ def restore_backup():
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)
+
+# Add currency support to settings
+@app.template_filter('format_currency')
+def format_currency(value):
+    if value is None:
+        return '-'
+    currency_symbol = get_setting('currency_symbol', '$')
+    return f"{currency_symbol}{value:,.2f}"
+
+app.jinja_env.filters['format_currency'] = format_currency

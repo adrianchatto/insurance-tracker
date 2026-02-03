@@ -6,6 +6,34 @@
     
     <form method="POST">
         <div class="mb-8">
+            <h2 class="text-xl font-semibold text-gray-800 mb-4">Currency Settings</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-gray-700 font-semibold mb-2">Currency Symbol</label>
+                    <input type="text" name="currency_symbol" value="{{ settings.currency_symbol }}" 
+                           placeholder="$"
+                           class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <p class="text-sm text-gray-500 mt-1">e.g., $, £, €, ¥</p>
+                </div>
+                <div>
+                    <label class="block text-gray-700 font-semibold mb-2">Currency Code</label>
+                    <select name="currency_code" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <option value="USD" {% if settings.currency_code == 'USD' %}selected{% endif %}>USD - US Dollar ($)</option>
+                        <option value="GBP" {% if settings.currency_code == 'GBP' %}selected{% endif %}>GBP - British Pound (£)</option>
+                        <option value="EUR" {% if settings.currency_code == 'EUR' %}selected{% endif %}>EUR - Euro (€)</option>
+                        <option value="JPY" {% if settings.currency_code == 'JPY' %}selected{% endif %}>JPY - Japanese Yen (¥)</option>
+                        <option value="AUD" {% if settings.currency_code == 'AUD' %}selected{% endif %}>AUD - Australian Dollar (A$)</option>
+                        <option value="CAD" {% if settings.currency_code == 'CAD' %}selected{% endif %}>CAD - Canadian Dollar (C$)</option>
+                        <option value="CHF" {% if settings.currency_code == 'CHF' %}selected{% endif %}>CHF - Swiss Franc (Fr)</option>
+                        <option value="CNY" {% if settings.currency_code == 'CNY' %}selected{% endif %}>CNY - Chinese Yuan (¥)</option>
+                        <option value="INR" {% if settings.currency_code == 'INR' %}selected{% endif %}>INR - Indian Rupee (₹)</option>
+                        <option value="ZAR" {% if settings.currency_code == 'ZAR' %}selected{% endif %}>ZAR - South African Rand (R)</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+
+        <div class="mb-8 border-t pt-8">
             <h2 class="text-xl font-semibold text-gray-800 mb-4">Notification Settings</h2>
             <div class="space-y-4">
                 <div class="flex items-center">
@@ -21,7 +49,7 @@
             </div>
         </div>
 
-        <div class="mb-8">
+        <div class="mb-8 border-t pt-8">
             <h2 class="text-xl font-semibold text-gray-800 mb-4">SMTP Settings</h2>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
