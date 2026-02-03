@@ -1,0 +1,98 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto bg-white rounded-lg shadow-lg p-8">
+    <h1 class="text-3xl font-bold text-gray-800 mb-6">Edit Policy</h1>
+    
+    <form method="POST">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+                <label class="block text-gray-700 font-semibold mb-2">Friendly Name *</label>
+                <input type="text" name="friendly_name" value="{{ policy.friendly_name }}" required
+                       class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+            </div>
+            <div>
+                <label class="block text-gray-700 font-semibold mb-2">Policy/Account Number *</label>
+                <input type="text" name="policy_number" value="{{ policy.policy_number }}" required
+                       class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+            </div>
+            <div>
+                <label class="block text-gray-700 font-semibold mb-2">Provider/Insurer *</label>
+                <input type="text" name="insurer" value="{{ policy.insurer }}" required
+                       class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+            </div>
+            <div>
+                <label class="block text-gray-700 font-semibold mb-2">Category *</label>
+                <select name="category" required class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    {% for category in categories %}
+                    <option value="{{ category.name }}" {% if policy.category == category.name %}selected{% endif %}>{{ category.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div>
+                <label class="block text-gray-700 font-semibold mb-2">Start Date *</label>
+                <input type="date" name="start_date" value="{{ policy.start_date }}" required
+                       class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+            </div>
+            <div>
+                <label class="block text-gray-700 font-semibold mb-2">End Date *</label>
+                <input type="date" name="end_date" value="{{ policy.end_date }}" required
+                       class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+            </div>
+            <div>
+                <label class="block text-gray-700 font-semibold mb-2">Monthly Amount</label>
+                <input type="number" step="0.01" name="monthly_amount" id="monthly_amount" value="{{ policy.monthly_amount or '' }}"
+                       onchange="calculateAnnual()"
+                       class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+            </div>
+            <div>
+                <label class="block text-gray-700 font-semibold mb-2">Annual Amount</label>
+                <input type="number" step="0.01" name="annual_amount" id="annual_amount" value="{{ policy.annual_amount or '' }}"
+                       onchange="calculateMonthly()"
+                       class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+            </div>
+            <div>
+                <label class="block text-gray-700 font-semibold mb-2">Account Source</label>
+                <input type="text" name="account_source" value="{{ policy.account_source or '' }}"
+                       class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+            </div>
+            <div>
+                <label class="block text-gray-700 font-semibold mb-2">Provider Website</label>
+                <input type="url" name="insurer_website" value="{{ policy.insurer_website or '' }}"
+                       class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+            </div>
+            <div class="md:col-span-2">
+                <label class="block text-gray-700 font-semibold mb-2">Notes</label>
+                <textarea name="notes" rows="3"
+                          class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">{{ policy.notes or '' }}</textarea>
+            </div>
+        </div>
+        <div class="flex justify-end gap-3 mt-6">
+            <a href="{{ url_for('index') }}" 
+               class="px-6 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 transition duration-200">
+                Cancel
+            </a>
+            <button type="submit" 
+                    class="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition duration-200">
+                Update Policy
+            </button>
+        </div>
+    </form>
+</div>
+
+<script>
+function calculateAnnual() {
+    const monthly = document.getElementById('monthly_amount').value;
+    if (monthly) {
+        document.getElementById('annual_amount').value = (parseFloat(monthly) * 12).toFixed(2);
+    }
+}
+
+function calculateMonthly() {
+    const annual = document.getElementById('annual_amount').value;
+    if (annual) {
+        document.getElementById('monthly_amount').value = (parseFloat(annual) / 12).toFixed(2);
+    }
+}
+</script>
+{% endblock %}
