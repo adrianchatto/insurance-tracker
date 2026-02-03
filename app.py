@@ -99,6 +99,13 @@ init_db()
 def inject_now():
     return {'now': datetime.now()}
 
+@app.template_filter('format_currency')
+def format_currency(value):
+    if value is None:
+        return '-'
+    currency_symbol = get_setting('currency_symbol', '$')
+    return f"{currency_symbol}{value:,.2f}"
+
 def login_required(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
@@ -650,13 +657,3 @@ def restore_backup():
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)
-
-# Add currency support to settings
-@app.template_filter('format_currency')
-def format_currency(value):
-    if value is None:
-        return '-'
-    currency_symbol = get_setting('currency_symbol', '$')
-    return f"{currency_symbol}{value:,.2f}"
-
-app.jinja_env.filters['format_currency'] = format_currency
