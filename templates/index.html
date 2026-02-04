@@ -97,7 +97,9 @@
                     <td class="px-6 py-4 whitespace-nowrap text-sm font-bold text-gray-900">
                         {{ (policies | sum(attribute='annual_amount') | default(0)) | format_currency }}
                     </td>
-                    <td class="px-6 py-4"></td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm font-bold text-gray-900">
+                        {{ (policies | selectattr('remaining_balance') | sum(attribute='remaining_balance') | default(0)) | format_currency }}
+                    </td>
                     <td class="px-6 py-4"></td>
                 </tr>
             </tfoot>
