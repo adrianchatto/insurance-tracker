@@ -30,6 +30,7 @@
                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Days Left</th>
                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Monthly</th>
                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Annual</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Balance</th>
                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                 </tr>
             </thead>
@@ -42,7 +43,7 @@
                     </td>
                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ policy.insurer }}</td>
                     <td class="px-6 py-4 whitespace-nowrap">
-                        <span class="px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-xs font-semibold">{{ policy.category }}</span>
+                        <span class="px-2 py-1 rounded-full text-xs font-semibold text-white" style="background-color: {{ policy.category_color }}">{{ policy.category }}</span>
                     </td>
                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ policy.end_date }}</td>
                     <td class="px-6 py-4 whitespace-nowrap text-sm">
@@ -62,6 +63,13 @@
                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                         {{ policy.annual_amount | format_currency }}
                     </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        {% if policy.category == 'Mortgage' and policy.remaining_balance %}
+                        {{ policy.remaining_balance | format_currency }}
+                        {% else %}
+                        -
+                        {% endif %}
+                    </td>
                     <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
                         {% if policy.insurer_website %}
                         <a href="{{ policy.insurer_website }}" target="_blank" class="text-blue-600 hover:text-blue-900 mr-3" title="Visit website">
@@ -80,6 +88,19 @@
                 </tr>
                 {% endfor %}
             </tbody>
+            <tfoot class="bg-gray-100 border-t-2 border-gray-300">
+                <tr>
+                    <td colspan="5" class="px-6 py-4 text-right font-bold text-gray-700">Totals:</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm font-bold text-gray-900">
+                        {{ (policies | sum(attribute='monthly_amount') | default(0)) | format_currency }}
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm font-bold text-gray-900">
+                        {{ (policies | sum(attribute='annual_amount') | default(0)) | format_currency }}
+                    </td>
+                    <td class="px-6 py-4"></td>
+                    <td class="px-6 py-4"></td>
+                </tr>
+            </tfoot>
         </table>
     </div>
     {% else %}
@@ -119,7 +140,7 @@
                 </div>
                 <div>
                     <label class="block text-gray-700 font-semibold mb-2">Category *</label>
-                    <select name="category" required class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <select name="category" id="category_add" required onchange="toggleRemainingBalance('add')" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
                         <option value="">Select Category</option>
                         {% for category in categories %}
                         <option value="{{ category.name }}">{{ category.name }}</option>
@@ -146,6 +167,11 @@
                     <label class="block text-gray-700 font-semibold mb-2">Annual Amount</label>
                     <input type="number" step="0.01" name="annual_amount" id="annual_amount"
                            onchange="calculateMonthly()"
+                           class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                </div>
+                <div id="remaining_balance_add" style="display: none;">
+                    <label class="block text-gray-700 font-semibold mb-2">Remaining Balance</label>
+                    <input type="number" step="0.01" name="remaining_balance"
                            class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
                 </div>
                 <div>
@@ -191,6 +217,19 @@ function calculateMonthly() {
     const annual = document.getElementById('annual_amount').value;
     if (annual) {
         document.getElementById('monthly_amount').value = (parseFloat(annual) / 12).toFixed(2);
+    }
+}
+
+function toggleRemainingBalance(context) {
+    const categorySelect = document.getElementById('category_' + context);
+    const remainingBalanceDiv = document.getElementById('remaining_balance_' + context);
+
+    if (categorySelect && remainingBalanceDiv) {
+        if (categorySelect.value === 'Mortgage') {
+            remainingBalanceDiv.style.display = 'block';
+        } else {
+            remainingBalanceDiv.style.display = 'none';
+        }
     }
 }
 </script>

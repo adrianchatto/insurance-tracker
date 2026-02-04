@@ -35,6 +35,7 @@ def init_db():
                   end_date TEXT NOT NULL,
                   monthly_amount REAL,
                   annual_amount REAL,
+                  remaining_balance REAL,
                   account_source TEXT,
                   insurer_website TEXT,
                   notes TEXT,
@@ -44,6 +45,7 @@ def init_db():
     c.execute('''CREATE TABLE IF NOT EXISTS categories
                  (id INTEGER PRIMARY KEY AUTOINCREMENT,
                   name TEXT UNIQUE NOT NULL,
+                  color TEXT DEFAULT '#3B82F6',
                   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)''')
     
     # Create users table (email as username)
@@ -68,10 +70,20 @@ def init_db():
         c.execute("INSERT INTO users (email, password, is_admin) VALUES (?, ?, ?)",
                  ('admin@policytracker.local', hashed_password, 1))
     
-    # Initialize default categories
-    default_categories = ['Mortgage', 'Insurance', 'Utilities', 'Subscriptions', 'Warranties', 'Other']
-    for category in default_categories:
-        c.execute("INSERT OR IGNORE INTO categories (name) VALUES (?)", (category,))
+    # Initialize default categories with colors
+    default_categories = [
+        ('Mortgage', '#10B981'),      # Green
+        ('Insurance', '#3B82F6'),     # Blue
+        ('Utilities', '#F59E0B'),     # Orange
+        ('Subscriptions', '#8B5CF6'), # Purple
+        ('Warranties', '#EC4899'),    # Pink
+        ('Other', '#6B7280')          # Gray
+    ]
+    for category, color in default_categories:
+        c.execute("INSERT OR IGNORE INTO categories (name, color) VALUES (?, ?)", (category, color))
+
+    # Update existing categories with default color if they don't have one
+    c.execute("UPDATE categories SET color = '#3B82F6' WHERE color IS NULL OR color = ''")
     
     # Initialize default settings
     default_settings = {
@@ -189,17 +201,19 @@ def index():
         c.execute("SELECT * FROM policies ORDER BY end_date")
     
     policies = c.fetchall()
-    
-    c.execute("SELECT name FROM categories ORDER BY name")
+
+    c.execute("SELECT name, color FROM categories ORDER BY name")
     categories = c.fetchall()
-    
+
     conn.close()
-    
-    # Add days until expiry to each policy
+
+    # Add days until expiry and category color to each policy
     policies_with_days = []
+    categories_dict = {cat['name']: cat['color'] for cat in categories}
     for policy in policies:
         policy_dict = dict(policy)
         policy_dict['days_until_expiry'] = calculate_days_until_expiry(policy['end_date'])
+        policy_dict['category_color'] = categories_dict.get(policy['category'], '#3B82F6')
         policies_with_days.append(policy_dict)
     
     return render_template('index.html', policies=policies_with_days, categories=categories, selected_category=category_filter)
@@ -215,27 +229,28 @@ def add_policy():
     end_date = request.form.get('end_date')
     monthly_amount = request.form.get('monthly_amount') or None
     annual_amount = request.form.get('annual_amount') or None
+    remaining_balance = request.form.get('remaining_balance') or None
     account_source = request.form.get('account_source')
     insurer_website = request.form.get('insurer_website')
     notes = request.form.get('notes')
-    
+
     # Calculate the other amount if one is provided
     if monthly_amount and not annual_amount:
         annual_amount = float(monthly_amount) * 12
     elif annual_amount and not monthly_amount:
         monthly_amount = float(annual_amount) / 12
-    
+
     if not all([friendly_name, policy_number, insurer, category, start_date, end_date]):
         flash('Please fill in all required fields.', 'error')
         return redirect(url_for('index'))
-    
+
     conn = get_db()
     c = conn.cursor()
-    c.execute("""INSERT INTO policies (friendly_name, policy_number, insurer, category, start_date, end_date, 
-                 monthly_amount, annual_amount, account_source, insurer_website, notes)
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-             (friendly_name, policy_number, insurer, category, start_date, end_date, 
-              monthly_amount, annual_amount, account_source, insurer_website, notes))
+    c.execute("""INSERT INTO policies (friendly_name, policy_number, insurer, category, start_date, end_date,
+                 monthly_amount, annual_amount, remaining_balance, account_source, insurer_website, notes)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+             (friendly_name, policy_number, insurer, category, start_date, end_date,
+              monthly_amount, annual_amount, remaining_balance, account_source, insurer_website, notes))
     conn.commit()
     conn.close()
     
@@ -257,26 +272,27 @@ def edit_policy(id):
         end_date = request.form.get('end_date')
         monthly_amount = request.form.get('monthly_amount') or None
         annual_amount = request.form.get('annual_amount') or None
+        remaining_balance = request.form.get('remaining_balance') or None
         account_source = request.form.get('account_source')
         insurer_website = request.form.get('insurer_website')
         notes = request.form.get('notes')
-        
+
         # Calculate the other amount if one is provided
         if monthly_amount and not annual_amount:
             annual_amount = float(monthly_amount) * 12
         elif annual_amount and not monthly_amount:
             monthly_amount = float(annual_amount) / 12
-        
+
         if not all([friendly_name, policy_number, insurer, category, start_date, end_date]):
             flash('Please fill in all required fields.', 'error')
             return redirect(url_for('edit_policy', id=id))
-        
-        c.execute("""UPDATE policies 
-                     SET friendly_name=?, policy_number=?, insurer=?, category=?, start_date=?, end_date=?, 
-                         monthly_amount=?, annual_amount=?, account_source=?, insurer_website=?, notes=?
+
+        c.execute("""UPDATE policies
+                     SET friendly_name=?, policy_number=?, insurer=?, category=?, start_date=?, end_date=?,
+                         monthly_amount=?, annual_amount=?, remaining_balance=?, account_source=?, insurer_website=?, notes=?
                      WHERE id=?""",
                  (friendly_name, policy_number, insurer, category, start_date, end_date,
-                  monthly_amount, annual_amount, account_source, insurer_website, notes, id))
+                  monthly_amount, annual_amount, remaining_balance, account_source, insurer_website, notes, id))
         conn.commit()
         conn.close()
         
@@ -285,16 +301,16 @@ def edit_policy(id):
     
     c.execute("SELECT * FROM policies WHERE id=?", (id,))
     policy = c.fetchone()
-    
-    c.execute("SELECT name FROM categories ORDER BY name")
+
+    c.execute("SELECT name, color FROM categories ORDER BY name")
     categories = c.fetchall()
-    
+
     conn.close()
-    
+
     if not policy:
         flash('Policy not found.', 'error')
         return redirect(url_for('index'))
-    
+
     return render_template('edit.html', policy=policy, categories=categories)
 
 @app.route('/delete/<int:id>')
