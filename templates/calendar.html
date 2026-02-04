@@ -1,0 +1,291 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="bg-white rounded-lg shadow-lg p-6">
+    <div class="flex justify-between items-center mb-6">
+        <h1 class="text-3xl font-bold text-gray-800">Policy Timeline</h1>
+        <div class="flex gap-2">
+            <a href="{{ url_for('index') }}" class="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition duration-200">
+                <i class="fas fa-table mr-2"></i>Table View
+            </a>
+            <button class="px-4 py-2 bg-blue-600 text-white rounded-lg cursor-default">
+                <i class="fas fa-calendar-alt mr-2"></i>Calendar View
+            </button>
+        </div>
+    </div>
+
+    {% if all_policies %}
+    <div class="overflow-x-auto">
+        <!-- Timeline Header -->
+        <div id="timeline-header" class="flex mb-4">
+            <div class="w-32 flex-shrink-0"></div>
+            <div class="flex-1 relative h-12" id="year-labels"></div>
+        </div>
+
+        <!-- Timeline Rows -->
+        {% for category in categories %}
+        <div class="timeline-row mb-4">
+            <div class="flex">
+                <!-- Category Label -->
+                <div class="w-32 flex-shrink-0 pr-4 flex items-center">
+                    <span class="px-3 py-1 rounded-full text-xs font-semibold text-white" style="background-color: {{ category.color }}">
+                        {{ category.name }}
+                    </span>
+                </div>
+
+                <!-- Timeline Bars Container -->
+                <div class="flex-1 relative timeline-bars"
+                     data-category="{{ category.name }}"
+                     style="min-height: 60px; background: linear-gradient(90deg, #f9fafb 0%, #f3f4f6 100%);">
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="text-center py-12">
+        <i class="fas fa-calendar-times text-gray-300 text-6xl mb-4"></i>
+        <p class="text-gray-500 text-lg">No policies found. Add your first policy to get started!</p>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Policy Details Tooltip -->
+<div id="policy-tooltip" class="hidden fixed bg-gray-900 text-white text-sm rounded-lg p-3 shadow-lg z-50 max-w-sm">
+    <div id="tooltip-content"></div>
+</div>
+
+<style>
+.timeline-bars {
+    border: 1px solid #e5e7eb;
+    border-radius: 0.5rem;
+}
+
+.policy-bar {
+    position: absolute;
+    height: 36px;
+    border-radius: 0.5rem;
+    cursor: pointer;
+    transition: transform 0.2s, box-shadow 0.2s;
+    display: flex;
+    align-items: center;
+    padding: 0 0.75rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: white;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.policy-bar:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+    z-index: 10;
+}
+
+.today-marker {
+    position: absolute;
+    width: 2px;
+    background-color: #ef4444;
+    top: 0;
+    bottom: 0;
+    z-index: 5;
+}
+
+.today-label {
+    position: absolute;
+    top: -20px;
+    left: -20px;
+    font-size: 0.7rem;
+    color: #ef4444;
+    font-weight: 600;
+}
+
+.year-marker {
+    position: absolute;
+    top: 0;
+    height: 100%;
+    border-left: 1px solid #d1d5db;
+    padding-left: 4px;
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: #374151;
+}
+</style>
+
+<script>
+// Pass Python data to JavaScript
+const policiesData = {{ all_policies | tojson }};
+const policiesByCategory = {{ policies_by_category | tojson }};
+
+// Parse dates and calculate timeline range
+let minDate = new Date();
+let maxDate = new Date();
+
+if (policiesData.length > 0) {
+    const dates = policiesData.flatMap(p => [new Date(p.start_date), new Date(p.end_date)]);
+    minDate = new Date(Math.min(...dates));
+    maxDate = new Date(Math.max(...dates));
+
+    // Extend range slightly for padding
+    minDate.setMonth(minDate.getMonth() - 2);
+    maxDate.setMonth(maxDate.getMonth() + 2);
+}
+
+// Calculate position as percentage
+function dateToPercent(dateStr, minDate, maxDate) {
+    const date = new Date(dateStr);
+    const totalMs = maxDate - minDate;
+    const dateMs = date - minDate;
+    return (dateMs / totalMs) * 100;
+}
+
+// Format currency
+function formatCurrency(amount) {
+    if (!amount) return '-';
+    return new Intl.NumberFormat('en-GB', { style: 'currency', currency: 'GBP' }).format(amount);
+}
+
+// Render year labels
+function renderYearLabels() {
+    const container = document.getElementById('year-labels');
+    if (!container) return;
+
+    const startYear = minDate.getFullYear();
+    const endYear = maxDate.getFullYear();
+
+    for (let year = startYear; year <= endYear; year++) {
+        const yearDate = new Date(year, 0, 1);
+        if (yearDate >= minDate && yearDate <= maxDate) {
+            const percent = dateToPercent(yearDate.toISOString().split('T')[0], minDate, maxDate);
+
+            const marker = document.createElement('div');
+            marker.className = 'year-marker';
+            marker.style.left = percent + '%';
+            marker.textContent = year;
+            container.appendChild(marker);
+        }
+    }
+
+    // Add "Today" marker
+    const today = new Date();
+    if (today >= minDate && today <= maxDate) {
+        const todayPercent = dateToPercent(today.toISOString().split('T')[0], minDate, maxDate);
+
+        const containers = document.querySelectorAll('.timeline-bars');
+        containers.forEach(container => {
+            const marker = document.createElement('div');
+            marker.className = 'today-marker';
+            marker.style.left = todayPercent + '%';
+            marker.innerHTML = '<span class="today-label">Today</span>';
+            container.appendChild(marker);
+        });
+    }
+}
+
+// Render policy bars
+function renderPolicyBars() {
+    Object.keys(policiesByCategory).forEach(category => {
+        const policies = policiesByCategory[category];
+        const container = document.querySelector(`.timeline-bars[data-category="${category}"]`);
+
+        if (!container || !policies) return;
+
+        // Track vertical positions to stack overlapping policies
+        const occupiedRanges = [];
+
+        policies.forEach(policy => {
+            const startPercent = dateToPercent(policy.start_date, minDate, maxDate);
+            const endPercent = dateToPercent(policy.end_date, minDate, maxDate);
+            const width = endPercent - startPercent;
+
+            // Find vertical position (stack if overlapping)
+            let top = 8;
+            for (let range of occupiedRanges) {
+                if (!(endPercent < range.start || startPercent > range.end)) {
+                    top = range.top + 44; // Stack below
+                }
+            }
+            occupiedRanges.push({ start: startPercent, end: endPercent, top: top });
+
+            // Adjust container height if needed
+            const minHeight = top + 44;
+            if (parseInt(container.style.minHeight) < minHeight) {
+                container.style.minHeight = minHeight + 'px';
+            }
+
+            // Create policy bar
+            const bar = document.createElement('div');
+            bar.className = 'policy-bar';
+            bar.style.left = startPercent + '%';
+            bar.style.width = width + '%';
+            bar.style.top = top + 'px';
+            bar.style.backgroundColor = policy.category_color;
+            bar.textContent = policy.friendly_name;
+
+            // Add tooltip on hover
+            bar.addEventListener('mouseenter', (e) => showTooltip(e, policy));
+            bar.addEventListener('mouseleave', hideTooltip);
+
+            // Click to edit
+            bar.addEventListener('click', () => {
+                window.location.href = `/edit/${policy.id}`;
+            });
+
+            container.appendChild(bar);
+        });
+    });
+}
+
+// Show tooltip
+function showTooltip(event, policy) {
+    const tooltip = document.getElementById('policy-tooltip');
+    const content = document.getElementById('tooltip-content');
+
+    const daysLeft = policy.days_until_expiry;
+    let statusColor = 'text-green-400';
+    let statusText = `${daysLeft} days left`;
+    if (daysLeft < 0) {
+        statusColor = 'text-red-400';
+        statusText = 'Expired';
+    } else if (daysLeft < 30) {
+        statusColor = 'text-red-400';
+    } else if (daysLeft < 60) {
+        statusColor = 'text-yellow-400';
+    }
+
+    content.innerHTML = `
+        <div class="font-bold mb-2">${policy.friendly_name}</div>
+        <div class="text-xs space-y-1">
+            <div><span class="text-gray-400">Provider:</span> ${policy.insurer}</div>
+            <div><span class="text-gray-400">Policy #:</span> ${policy.policy_number}</div>
+            <div><span class="text-gray-400">Start:</span> ${policy.start_date}</div>
+            <div><span class="text-gray-400">End:</span> ${policy.end_date}</div>
+            <div class="${statusColor}"><span class="text-gray-400">Status:</span> ${statusText}</div>
+            ${policy.monthly_amount ? `<div><span class="text-gray-400">Monthly:</span> ${formatCurrency(policy.monthly_amount)}</div>` : ''}
+            ${policy.annual_amount ? `<div><span class="text-gray-400">Annual:</span> ${formatCurrency(policy.annual_amount)}</div>` : ''}
+            ${policy.remaining_balance ? `<div><span class="text-gray-400">Balance:</span> ${formatCurrency(policy.remaining_balance)}</div>` : ''}
+        </div>
+        <div class="text-xs text-gray-400 mt-2 italic">Click to edit</div>
+    `;
+
+    tooltip.classList.remove('hidden');
+    tooltip.style.left = (event.pageX + 10) + 'px';
+    tooltip.style.top = (event.pageY + 10) + 'px';
+}
+
+// Hide tooltip
+function hideTooltip() {
+    const tooltip = document.getElementById('policy-tooltip');
+    tooltip.classList.add('hidden');
+}
+
+// Initialize timeline
+if (policiesData.length > 0) {
+    renderYearLabels();
+    renderPolicyBars();
+}
+</script>
+{% endblock %}

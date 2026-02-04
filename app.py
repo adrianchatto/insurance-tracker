@@ -218,6 +218,46 @@ def index():
     
     return render_template('index.html', policies=policies_with_days, categories=categories, selected_category=category_filter)
 
+@app.route('/calendar')
+@login_required
+def calendar():
+    conn = get_db()
+    c = conn.cursor()
+
+    # Get all policies ordered by category and start date
+    c.execute("SELECT * FROM policies ORDER BY category, start_date")
+    policies = c.fetchall()
+
+    # Get categories for grouping and colors
+    c.execute("SELECT name, color FROM categories ORDER BY name")
+    categories = c.fetchall()
+
+    conn.close()
+
+    # Enrich policies with category colors and days until expiry
+    categories_dict = {cat['name']: cat['color'] for cat in categories}
+    policies_enhanced = []
+    for policy in policies:
+        policy_dict = dict(policy)
+        policy_dict['days_until_expiry'] = calculate_days_until_expiry(policy['end_date'])
+        policy_dict['category_color'] = categories_dict.get(policy['category'], '#3B82F6')
+        policies_enhanced.append(policy_dict)
+
+    # Group policies by category for timeline rendering
+    policies_by_category = {}
+    for category in categories:
+        policies_by_category[category['name']] = []
+
+    for policy in policies_enhanced:
+        cat = policy['category']
+        if cat in policies_by_category:
+            policies_by_category[cat].append(policy)
+
+    return render_template('calendar.html',
+                          policies_by_category=policies_by_category,
+                          categories=categories,
+                          all_policies=policies_enhanced)
+
 @app.route('/add', methods=['POST'])
 @login_required
 def add_policy():

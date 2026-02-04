@@ -23,10 +23,13 @@
                         <span class="ml-2 text-xl font-bold text-gray-800">Policy Tracker</span>
                     </div>
                     <div class="hidden sm:ml-6 sm:flex sm:space-x-8">
-                        <a href="{{ url_for('index') }}" class="border-indigo-500 text-gray-900 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium">
-                            <i class="fas fa-home mr-2"></i>Policies
+                        <a href="{{ url_for('index') }}" class="{% if request.endpoint == 'index' %}border-indigo-500 text-gray-900{% else %}border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700{% endif %} inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium">
+                            <i class="fas fa-table mr-2"></i>Policies
                         </a>
-                        <a href="{{ url_for('manage_categories') }}" class="border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium">
+                        <a href="{{ url_for('calendar') }}" class="{% if request.endpoint == 'calendar' %}border-indigo-500 text-gray-900{% else %}border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700{% endif %} inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium">
+                            <i class="fas fa-calendar-alt mr-2"></i>Calendar
+                        </a>
+                        <a href="{{ url_for('manage_categories') }}" class="{% if request.endpoint == 'manage_categories' %}border-indigo-500 text-gray-900{% else %}border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700{% endif %} inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium">
                             <i class="fas fa-tags mr-2"></i>Categories
                         </a>
                         {% if session.is_admin %}
