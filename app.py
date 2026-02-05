@@ -284,6 +284,16 @@ def budget():
     c.execute("SELECT name, color FROM categories ORDER BY name")
     categories = c.fetchall()
 
+    # Get all policies for linking
+    c.execute("""SELECT p.*, c.color as category_color
+                 FROM policies p
+                 LEFT JOIN categories c ON p.category = c.name
+                 ORDER BY p.category, p.friendly_name""")
+    policies = c.fetchall()
+
+    # Get existing budget item names to check if policy is already linked
+    budget_item_names = set(item['name'] for item in items)
+
     conn.close()
 
     # Separate income and expenses
@@ -304,10 +314,18 @@ def budget():
             expenses_by_category[cat] = 0
         expenses_by_category[cat] += item['amount']
 
+    # Enhance policies with linked status
+    policies_enhanced = []
+    for policy in policies:
+        policy_dict = dict(policy)
+        policy_dict['is_linked'] = policy['friendly_name'] in budget_item_names
+        policies_enhanced.append(policy_dict)
+
     return render_template('budget.html',
                           income_items=income_items,
                           expense_items=expense_items,
                           categories=categories,
+                          policies=policies_enhanced,
                           total_income=total_income,
                           total_expenses=total_expenses,
                           fixed_costs=fixed_costs,
@@ -339,6 +357,92 @@ def add_budget_item():
     conn.close()
 
     flash(f'{"Income" if item_type == "income" else "Expense"} added successfully!', 'success')
+    return redirect(url_for('budget'))
+
+@app.route('/budget/edit/<int:id>', methods=['GET', 'POST'])
+@login_required
+def edit_budget_item(id):
+    conn = get_db()
+    c = conn.cursor()
+
+    if request.method == 'POST':
+        item_type = request.form.get('type')
+        name = request.form.get('name')
+        amount = request.form.get('amount')
+        category = request.form.get('category')
+        frequency = request.form.get('frequency', 'monthly')
+        is_fixed_cost = 1 if 'is_fixed_cost' in request.form else 0
+        notes = request.form.get('notes')
+
+        if not all([item_type, name, amount]):
+            flash('Please fill in all required fields.', 'error')
+            return redirect(url_for('budget'))
+
+        c.execute("""UPDATE budget_items
+                     SET type=?, name=?, amount=?, category=?, frequency=?, is_fixed_cost=?, notes=?
+                     WHERE id=?""",
+                 (item_type, name, float(amount), category, frequency, is_fixed_cost, notes, id))
+        conn.commit()
+        conn.close()
+
+        flash(f'{"Income" if item_type == "income" else "Expense"} updated successfully!', 'success')
+        return redirect(url_for('budget'))
+
+    # GET request - fetch item data
+    c.execute("SELECT * FROM budget_items WHERE id=?", (id,))
+    item = c.fetchone()
+    conn.close()
+
+    if not item:
+        flash('Item not found.', 'error')
+        return redirect(url_for('budget'))
+
+    # Return JSON for AJAX request
+    return {
+        'id': item['id'],
+        'type': item['type'],
+        'name': item['name'],
+        'amount': item['amount'],
+        'category': item['category'],
+        'frequency': item['frequency'],
+        'is_fixed_cost': item['is_fixed_cost'],
+        'notes': item['notes']
+    }
+
+@app.route('/budget/link-policy/<int:policy_id>', methods=['POST'])
+@login_required
+def link_policy_to_budget(policy_id):
+    is_fixed_cost = 1 if request.form.get('is_fixed_cost') == '1' else 0
+
+    conn = get_db()
+    c = conn.cursor()
+
+    # Get policy details
+    c.execute("SELECT * FROM policies WHERE id=?", (policy_id,))
+    policy = c.fetchone()
+
+    if not policy:
+        flash('Policy not found.', 'error')
+        return redirect(url_for('budget'))
+
+    # Check if already linked
+    c.execute("SELECT * FROM budget_items WHERE name=? AND type='expense'", (policy['friendly_name'],))
+    existing = c.fetchone()
+
+    if existing:
+        flash('This policy is already linked to the budget.', 'error')
+    else:
+        # Create budget item from policy
+        amount = policy['monthly_amount'] if policy['monthly_amount'] else 0
+        notes = f"Linked from policy: {policy['policy_number']}"
+
+        c.execute("""INSERT INTO budget_items (type, name, amount, category, frequency, is_fixed_cost, notes)
+                     VALUES (?, ?, ?, ?, ?, ?, ?)""",
+                 ('expense', policy['friendly_name'], float(amount), policy['category'], 'monthly', is_fixed_cost, notes))
+        conn.commit()
+        flash(f'Policy "{policy["friendly_name"]}" added to budget as {"fixed" if is_fixed_cost else "discretionary"} expense!', 'success')
+
+    conn.close()
     return redirect(url_for('budget'))
 
 @app.route('/budget/delete/<int:id>')
