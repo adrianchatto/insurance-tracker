@@ -29,6 +29,9 @@
                         <a href="{{ url_for('calendar') }}" class="{% if request.endpoint == 'calendar' %}border-indigo-500 text-gray-900{% else %}border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700{% endif %} inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium">
                             <i class="fas fa-calendar-alt mr-2"></i>Calendar
                         </a>
+                        <a href="{{ url_for('budget') }}" class="{% if request.endpoint == 'budget' %}border-indigo-500 text-gray-900{% else %}border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700{% endif %} inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium">
+                            <i class="fas fa-wallet mr-2"></i>Budget
+                        </a>
                         <a href="{{ url_for('manage_categories') }}" class="{% if request.endpoint == 'manage_categories' %}border-indigo-500 text-gray-900{% else %}border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700{% endif %} inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium">
                             <i class="fas fa-tags mr-2"></i>Categories
                         </a>

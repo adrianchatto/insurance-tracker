@@ -62,7 +62,19 @@ def init_db():
                  (id INTEGER PRIMARY KEY AUTOINCREMENT,
                   key TEXT UNIQUE NOT NULL,
                   value TEXT NOT NULL)''')
-    
+
+    # Create budget_items table
+    c.execute('''CREATE TABLE IF NOT EXISTS budget_items
+                 (id INTEGER PRIMARY KEY AUTOINCREMENT,
+                  type TEXT NOT NULL,
+                  name TEXT NOT NULL,
+                  amount REAL NOT NULL,
+                  category TEXT,
+                  frequency TEXT DEFAULT 'monthly',
+                  is_fixed_cost INTEGER DEFAULT 0,
+                  notes TEXT,
+                  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)''')
+
     # Check if admin user exists
     c.execute("SELECT * FROM users WHERE email = 'admin@policytracker.local'")
     if not c.fetchone():
@@ -257,6 +269,89 @@ def calendar():
                           policies_by_category=policies_by_category,
                           categories=categories,
                           all_policies=policies_enhanced)
+
+@app.route('/budget')
+@login_required
+def budget():
+    conn = get_db()
+    c = conn.cursor()
+
+    # Get all budget items
+    c.execute("SELECT * FROM budget_items ORDER BY type, category, name")
+    items = c.fetchall()
+
+    # Get categories for dropdown
+    c.execute("SELECT name, color FROM categories ORDER BY name")
+    categories = c.fetchall()
+
+    conn.close()
+
+    # Separate income and expenses
+    income_items = [dict(item) for item in items if item['type'] == 'income']
+    expense_items = [dict(item) for item in items if item['type'] == 'expense']
+
+    # Calculate totals
+    total_income = sum(item['amount'] for item in income_items)
+    total_expenses = sum(item['amount'] for item in expense_items)
+    fixed_costs = sum(item['amount'] for item in expense_items if item['is_fixed_cost'])
+    discretionary = sum(item['amount'] for item in expense_items if not item['is_fixed_cost'])
+
+    # Group expenses by category for pie chart
+    expenses_by_category = {}
+    for item in expense_items:
+        cat = item['category'] or 'Other'
+        if cat not in expenses_by_category:
+            expenses_by_category[cat] = 0
+        expenses_by_category[cat] += item['amount']
+
+    return render_template('budget.html',
+                          income_items=income_items,
+                          expense_items=expense_items,
+                          categories=categories,
+                          total_income=total_income,
+                          total_expenses=total_expenses,
+                          fixed_costs=fixed_costs,
+                          discretionary=discretionary,
+                          expenses_by_category=expenses_by_category,
+                          net_income=total_income - total_expenses)
+
+@app.route('/budget/add', methods=['POST'])
+@login_required
+def add_budget_item():
+    item_type = request.form.get('type')
+    name = request.form.get('name')
+    amount = request.form.get('amount')
+    category = request.form.get('category')
+    frequency = request.form.get('frequency', 'monthly')
+    is_fixed_cost = 1 if 'is_fixed_cost' in request.form else 0
+    notes = request.form.get('notes')
+
+    if not all([item_type, name, amount]):
+        flash('Please fill in all required fields.', 'error')
+        return redirect(url_for('budget'))
+
+    conn = get_db()
+    c = conn.cursor()
+    c.execute("""INSERT INTO budget_items (type, name, amount, category, frequency, is_fixed_cost, notes)
+                 VALUES (?, ?, ?, ?, ?, ?, ?)""",
+             (item_type, name, float(amount), category, frequency, is_fixed_cost, notes))
+    conn.commit()
+    conn.close()
+
+    flash(f'{"Income" if item_type == "income" else "Expense"} added successfully!', 'success')
+    return redirect(url_for('budget'))
+
+@app.route('/budget/delete/<int:id>')
+@login_required
+def delete_budget_item(id):
+    conn = get_db()
+    c = conn.cursor()
+    c.execute("DELETE FROM budget_items WHERE id=?", (id,))
+    conn.commit()
+    conn.close()
+
+    flash('Item deleted successfully!', 'success')
+    return redirect(url_for('budget'))
 
 @app.route('/add', methods=['POST'])
 @login_required
