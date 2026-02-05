@@ -3,7 +3,7 @@ version: '3.8'
 services:
   policy-tracker:
     image: python:3.11-slim
-    container_name: policy-tracker1
+    container_name: policy-tracker
     command: sh -c "apt-get update && apt-get install -y git &&
        rm -rf /app/code &&
        git clone https://github.com/adrianchatto/insurance-tracker.git /app/code &&
