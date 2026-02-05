@@ -132,16 +132,20 @@ const policiesData = {{ all_policies | tojson }};
 const policiesByCategory = {{ policies_by_category | tojson }};
 
 // Parse dates and calculate timeline range
+let originalMinDate = new Date();
+let originalMaxDate = new Date();
 let minDate = new Date();
 let maxDate = new Date();
 let currentTimescale = 'years'; // 'years' or 'months'
 
 if (policiesData.length > 0) {
     const dates = policiesData.flatMap(p => [new Date(p.start_date), new Date(p.end_date)]);
-    minDate = new Date(Math.min(...dates));
-    maxDate = new Date(Math.max(...dates));
+    originalMinDate = new Date(Math.min(...dates));
+    originalMaxDate = new Date(Math.max(...dates));
 
-    // Extend range slightly for padding
+    // For years view, extend range slightly for padding
+    minDate = new Date(originalMinDate);
+    maxDate = new Date(originalMaxDate);
     minDate.setMonth(minDate.getMonth() - 2);
     maxDate.setMonth(maxDate.getMonth() + 2);
 }
@@ -171,13 +175,27 @@ function switchTimescale(scale) {
     if (scale === 'years') {
         btnYears.className = 'px-3 py-1 rounded-md bg-blue-600 text-white text-sm font-medium transition duration-200';
         btnMonths.className = 'px-3 py-1 rounded-md bg-transparent text-gray-700 text-sm font-medium hover:bg-gray-200 transition duration-200';
+
+        // Use full date range for years view
+        minDate = new Date(originalMinDate);
+        maxDate = new Date(originalMaxDate);
+        minDate.setMonth(minDate.getMonth() - 2);
+        maxDate.setMonth(maxDate.getMonth() + 2);
     } else {
         btnMonths.className = 'px-3 py-1 rounded-md bg-blue-600 text-white text-sm font-medium transition duration-200';
         btnYears.className = 'px-3 py-1 rounded-md bg-transparent text-gray-700 text-sm font-medium hover:bg-gray-200 transition duration-200';
+
+        // For months view, show 12 months centered around today
+        const today = new Date();
+        minDate = new Date(today);
+        minDate.setMonth(minDate.getMonth() - 6);
+        maxDate = new Date(today);
+        maxDate.setMonth(maxDate.getMonth() + 6);
     }
 
-    // Re-render timeline
+    // Re-render timeline and policy bars
     renderTimeLabels();
+    clearAndRenderPolicyBars();
 }
 
 // Render time labels (years or months)
@@ -264,6 +282,20 @@ function renderTodayMarker() {
             container.appendChild(marker);
         });
     }
+}
+
+// Clear and re-render policy bars
+function clearAndRenderPolicyBars() {
+    // Clear existing policy bars
+    document.querySelectorAll('.policy-bar').forEach(bar => bar.remove());
+
+    // Reset container heights
+    document.querySelectorAll('.timeline-bars').forEach(container => {
+        container.style.minHeight = '60px';
+    });
+
+    // Re-render
+    renderPolicyBars();
 }
 
 // Render policy bars
