@@ -30,7 +30,7 @@
         <!-- Timeline Header -->
         <div id="timeline-header" class="flex mb-4">
             <div class="w-32 flex-shrink-0"></div>
-            <div class="flex-1 relative h-12" id="year-labels"></div>
+            <div class="flex-1 relative h-16" id="year-labels"></div>
         </div>
 
         <!-- Timeline Rows -->
@@ -220,8 +220,12 @@ function renderTimeLabels() {
 function renderYearMarkers(container) {
     const startYear = minDate.getFullYear();
     const endYear = maxDate.getFullYear();
+    const yearRange = endYear - startYear + 1;
 
-    for (let year = startYear; year <= endYear; year++) {
+    // If too many years, show every other year
+    const step = yearRange > 10 ? 2 : 1;
+
+    for (let year = startYear; year <= endYear; year += step) {
         const yearDate = new Date(year, 0, 1);
         if (yearDate >= minDate && yearDate <= maxDate) {
             const percent = dateToPercent(yearDate.toISOString().split('T')[0], minDate, maxDate);
@@ -229,6 +233,7 @@ function renderYearMarkers(container) {
             const marker = document.createElement('div');
             marker.className = 'year-marker';
             marker.style.left = percent + '%';
+            marker.style.minWidth = '50px'; // Ensure minimum spacing
             marker.textContent = year;
             container.appendChild(marker);
         }
