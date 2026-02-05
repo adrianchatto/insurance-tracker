@@ -12,7 +12,7 @@ services:
        cp -r /app/code/* /app/ &&
        python app.py"
     ports:
-      - "5300:5000"
+      - "5000:5000"
     volumes:
       - ./data:/app/data
     environment:
