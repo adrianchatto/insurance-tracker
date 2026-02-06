@@ -3,7 +3,7 @@ version: '3.8'
 services:
   policy-tracker:
     image: python:3.11-slim
-    container_name: policy-trackergreen
+    container_name: policy-trackerblue
     command: sh -c "apt-get update && apt-get install -y git &&
        rm -rf /app/code &&
        git clone https://github.com/adrianchatto/insurance-tracker.git /app/code &&
@@ -12,7 +12,7 @@ services:
        cp -r /app/code/* /app/ &&
        python app.py"
     ports:
-      - "5320:5000"
+      - "5310:5000"
     volumes:
       - ./data:/app/data
     environment:
