@@ -228,7 +228,7 @@ def admin_required(f):
         
         if not user['is_admin']:
             flash('You do not have permission to access this page.', 'error')
-            return redirect(url_for('index'))
+            return redirect(url_for('policies'))
         
         return f(*args, **kwargs)
     return decorated_function
@@ -256,19 +256,19 @@ def calculate_days_until_expiry(end_date_str):
     except:
         return 0
 
-@app.route('/')
+@app.route('/policies')
 @login_required
-def index():
+def policies():
     category_filter = request.args.get('category', '')
-    
+
     conn = get_db()
     c = conn.cursor()
-    
+
     if category_filter:
         c.execute("SELECT * FROM financial_items WHERE is_policy = 1 AND category = ? ORDER BY end_date", (category_filter,))
     else:
         c.execute("SELECT * FROM financial_items WHERE is_policy = 1 ORDER BY end_date")
-    
+
     policies = c.fetchall()
 
     c.execute("SELECT name, color FROM categories ORDER BY name")
@@ -327,6 +327,7 @@ def calendar():
                           categories=categories,
                           all_policies=policies_enhanced)
 
+@app.route('/')
 @app.route('/budget')
 @login_required
 def budget():
@@ -479,6 +480,26 @@ def delete_budget_item(id):
     flash('Item deleted successfully!', 'success')
     return redirect(url_for('budget'))
 
+@app.route('/budget/toggle_policy/<int:id>', methods=['POST'])
+@login_required
+def toggle_policy(id):
+    conn = get_db()
+    c = conn.cursor()
+
+    # Get current is_policy value
+    c.execute("SELECT is_policy FROM financial_items WHERE id=?", (id,))
+    result = c.fetchone()
+
+    if result:
+        new_value = 0 if result['is_policy'] else 1
+        c.execute("UPDATE financial_items SET is_policy=? WHERE id=?", (new_value, id))
+        conn.commit()
+        conn.close()
+        return jsonify({'success': True, 'is_policy': new_value})
+
+    conn.close()
+    return jsonify({'success': False, 'error': 'Item not found'}), 404
+
 @app.route('/add', methods=['POST'])
 @login_required
 def add_policy():
@@ -503,7 +524,7 @@ def add_policy():
 
     if not all([friendly_name, policy_number, insurer, category, start_date, end_date]):
         flash('Please fill in all required fields.', 'error')
-        return redirect(url_for('index'))
+        return redirect(url_for('policies'))
 
     conn = get_db()
     c = conn.cursor()
@@ -518,7 +539,7 @@ def add_policy():
     conn.close()
     
     flash('Policy added successfully!', 'success')
-    return redirect(url_for('index'))
+    return redirect(url_for('policies'))
 
 @app.route('/edit/<int:id>', methods=['GET', 'POST'])
 @login_required
@@ -560,7 +581,7 @@ def edit_policy(id):
         conn.close()
         
         flash('Policy updated successfully!', 'success')
-        return redirect(url_for('index'))
+        return redirect(url_for('policies'))
     
     c.execute("SELECT * FROM financial_items WHERE id=? AND is_policy=1", (id,))
     policy = c.fetchone()
@@ -572,7 +593,7 @@ def edit_policy(id):
 
     if not policy:
         flash('Policy not found.', 'error')
-        return redirect(url_for('index'))
+        return redirect(url_for('policies'))
 
     return render_template('edit.html', policy=policy, categories=categories)
 
@@ -586,7 +607,7 @@ def delete_policy(id):
     conn.close()
     
     flash('Policy deleted successfully!', 'success')
-    return redirect(url_for('index'))
+    return redirect(url_for('policies'))
 
 @app.route('/categories', methods=['GET', 'POST'])
 @login_required
@@ -646,7 +667,7 @@ def login():
             session['email'] = user['email']
             session['is_admin'] = user['is_admin']
             flash('Logged in successfully!', 'success')
-            return redirect(url_for('index'))
+            return redirect(url_for('policies'))
         else:
             flash('Invalid email or password.', 'error')
     

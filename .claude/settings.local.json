@@ -7,7 +7,10 @@
       "Bash(git pull:*)",
       "Bash(git commit -m \"$\\(cat <<''EOF''\nAdd balance column total to footer\n\nCo-Authored-By: Claude Sonnet 4.5 <noreply@anthropic.com>\nEOF\n\\)\")",
       "Bash(git commit:*)",
-      "Bash(git push:*)"
+      "Bash(git push:*)",
+      "Read(//Users/adrianchatto/Documents/Projects/**)",
+      "Bash(ls:*)",
+      "Bash(git stash:*)"
     ]
   }
 }
