@@ -262,13 +262,16 @@ def calculate_days_until_expiry(end_date_str):
 @app.route('/policies')
 @login_required
 def policies():
-    category_filter = request.args.get('category', '')
+    # Support multiple category filters
+    category_filters = request.args.getlist('category')
 
     conn = get_db()
     c = conn.cursor()
 
-    if category_filter:
-        c.execute("SELECT * FROM financial_items WHERE is_policy = 1 AND category = ? ORDER BY end_date", (category_filter,))
+    if category_filters:
+        # Create placeholders for SQL IN clause
+        placeholders = ','.join('?' * len(category_filters))
+        c.execute(f"SELECT * FROM financial_items WHERE is_policy = 1 AND category IN ({placeholders}) ORDER BY end_date", category_filters)
     else:
         c.execute("SELECT * FROM financial_items WHERE is_policy = 1 ORDER BY end_date")
 
@@ -287,8 +290,8 @@ def policies():
         policy_dict['days_until_expiry'] = calculate_days_until_expiry(policy['end_date'])
         policy_dict['category_color'] = categories_dict.get(policy['category'], '#3B82F6')
         policies_with_days.append(policy_dict)
-    
-    return render_template('index.html', policies=policies_with_days, categories=categories, selected_category=category_filter)
+
+    return render_template('index.html', policies=policies_with_days, categories=categories, selected_categories=category_filters)
 
 @app.route('/calendar')
 @login_required
