@@ -903,10 +903,6 @@ def restore_backup():
             file.save(temp_db.name)
             temp_db.close()
 
-            # Close current database connection
-            if hasattr(g, 'db') and g.db is not None:
-                g.db.close()
-
             # Replace database file
             shutil.move(temp_db.name, DB_PATH)
 
