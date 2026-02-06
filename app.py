@@ -896,7 +896,23 @@ def restore_backup():
     
     try:
         if file.filename.endswith('.db'):
-            file.save(DB_PATH)
+            # Save to temporary location first
+            import tempfile
+            import shutil
+            temp_db = tempfile.NamedTemporaryFile(delete=False, suffix='.db')
+            file.save(temp_db.name)
+            temp_db.close()
+
+            # Close current database connection
+            if hasattr(g, 'db') and g.db is not None:
+                g.db.close()
+
+            # Replace database file
+            shutil.move(temp_db.name, DB_PATH)
+
+            # Trigger migration by running init_db
+            init_db()
+
             flash('Database restored successfully!', 'success')
         elif file.filename.endswith('.json'):
             backup_data = json.load(file)
