@@ -276,6 +276,15 @@ def budget():
     conn = get_db()
     c = conn.cursor()
 
+    # Get pagination parameters
+    expenses_page = request.args.get('expenses_page', 1, type=int)
+    policies_page = request.args.get('policies_page', 1, type=int)
+    per_page = request.args.get('per_page', 10, type=int)
+
+    # Validate per_page values
+    if per_page not in [10, 25, 50, 100]:
+        per_page = 10
+
     # Get all budget items
     c.execute("SELECT * FROM budget_items ORDER BY type, category, name")
     items = c.fetchall()
@@ -289,7 +298,7 @@ def budget():
                  FROM policies p
                  LEFT JOIN categories c ON p.category = c.name
                  ORDER BY p.category, p.friendly_name""")
-    policies = c.fetchall()
+    all_policies = c.fetchall()
 
     # Get existing budget item names to check if policy is already linked
     budget_item_names = set(item['name'] for item in items)
@@ -298,17 +307,17 @@ def budget():
 
     # Separate income and expenses
     income_items = [dict(item) for item in items if item['type'] == 'income']
-    expense_items = [dict(item) for item in items if item['type'] == 'expense']
+    all_expense_items = [dict(item) for item in items if item['type'] == 'expense']
 
-    # Calculate totals
+    # Calculate totals (use all items, not paginated)
     total_income = sum(item['amount'] for item in income_items)
-    total_expenses = sum(item['amount'] for item in expense_items)
-    fixed_costs = sum(item['amount'] for item in expense_items if item['is_fixed_cost'])
-    discretionary = sum(item['amount'] for item in expense_items if not item['is_fixed_cost'])
+    total_expenses = sum(item['amount'] for item in all_expense_items)
+    fixed_costs = sum(item['amount'] for item in all_expense_items if item['is_fixed_cost'])
+    discretionary = sum(item['amount'] for item in all_expense_items if not item['is_fixed_cost'])
 
     # Group expenses by category for pie chart
     expenses_by_category = {}
-    for item in expense_items:
+    for item in all_expense_items:
         cat = item['category'] or 'Other'
         if cat not in expenses_by_category:
             expenses_by_category[cat] = 0
@@ -316,22 +325,43 @@ def budget():
 
     # Enhance policies with linked status
     policies_enhanced = []
-    for policy in policies:
+    for policy in all_policies:
         policy_dict = dict(policy)
         policy_dict['is_linked'] = policy['friendly_name'] in budget_item_names
         policies_enhanced.append(policy_dict)
+
+    # Paginate expenses
+    expenses_total = len(all_expense_items)
+    expenses_total_pages = (expenses_total + per_page - 1) // per_page
+    expenses_start = (expenses_page - 1) * per_page
+    expenses_end = expenses_start + per_page
+    expense_items = all_expense_items[expenses_start:expenses_end]
+
+    # Paginate policies
+    policies_total = len(policies_enhanced)
+    policies_total_pages = (policies_total + per_page - 1) // per_page
+    policies_start = (policies_page - 1) * per_page
+    policies_end = policies_start + per_page
+    policies = policies_enhanced[policies_start:policies_end]
 
     return render_template('budget.html',
                           income_items=income_items,
                           expense_items=expense_items,
                           categories=categories,
-                          policies=policies_enhanced,
+                          policies=policies,
                           total_income=total_income,
                           total_expenses=total_expenses,
                           fixed_costs=fixed_costs,
                           discretionary=discretionary,
                           expenses_by_category=expenses_by_category,
-                          net_income=total_income - total_expenses)
+                          net_income=total_income - total_expenses,
+                          expenses_page=expenses_page,
+                          policies_page=policies_page,
+                          per_page=per_page,
+                          expenses_total=expenses_total,
+                          policies_total=policies_total,
+                          expenses_total_pages=expenses_total_pages,
+                          policies_total_pages=policies_total_pages)
 
 @app.route('/budget/add', methods=['POST'])
 @login_required

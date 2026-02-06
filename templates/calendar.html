@@ -13,15 +13,6 @@
                 <i class="fas fa-calendar-alt mr-2"></i>Calendar View
             </button>
 
-            <!-- Timescale Toggle -->
-            <div class="ml-4 flex gap-1 bg-gray-100 rounded-lg p-1">
-                <button id="btn-years" onclick="switchTimescale('years')" class="px-3 py-1 rounded-md bg-blue-600 text-white text-sm font-medium transition duration-200">
-                    Years
-                </button>
-                <button id="btn-months" onclick="switchTimescale('months')" class="px-3 py-1 rounded-md bg-transparent text-gray-700 text-sm font-medium hover:bg-gray-200 transition duration-200">
-                    Months
-                </button>
-            </div>
         </div>
     </div>
 
@@ -132,22 +123,16 @@ const policiesData = {{ all_policies | tojson }};
 const policiesByCategory = {{ policies_by_category | tojson }};
 
 // Parse dates and calculate timeline range
-let originalMinDate = new Date();
-let originalMaxDate = new Date();
 let minDate = new Date();
 let maxDate = new Date();
-let currentTimescale = 'years'; // 'years' or 'months'
 
 if (policiesData.length > 0) {
-    const dates = policiesData.flatMap(p => [new Date(p.start_date), new Date(p.end_date)]);
-    originalMinDate = new Date(Math.min(...dates));
-    originalMaxDate = new Date(Math.max(...dates));
-
-    // For years view, extend range slightly for padding
-    minDate = new Date(originalMinDate);
-    maxDate = new Date(originalMaxDate);
-    minDate.setMonth(minDate.getMonth() - 2);
-    maxDate.setMonth(maxDate.getMonth() + 2);
+    // For months view, show 12 months centered around today
+    const today = new Date();
+    minDate = new Date(today);
+    minDate.setMonth(minDate.getMonth() - 6);
+    maxDate = new Date(today);
+    maxDate.setMonth(maxDate.getMonth() + 6);
 }
 
 // Calculate position as percentage
@@ -164,80 +149,17 @@ function formatCurrency(amount) {
     return new Intl.NumberFormat('en-GB', { style: 'currency', currency: 'GBP' }).format(amount);
 }
 
-// Switch timescale
-function switchTimescale(scale) {
-    currentTimescale = scale;
-
-    // Update button states
-    const btnYears = document.getElementById('btn-years');
-    const btnMonths = document.getElementById('btn-months');
-
-    if (scale === 'years') {
-        btnYears.className = 'px-3 py-1 rounded-md bg-blue-600 text-white text-sm font-medium transition duration-200';
-        btnMonths.className = 'px-3 py-1 rounded-md bg-transparent text-gray-700 text-sm font-medium hover:bg-gray-200 transition duration-200';
-
-        // Use full date range for years view
-        minDate = new Date(originalMinDate);
-        maxDate = new Date(originalMaxDate);
-        minDate.setMonth(minDate.getMonth() - 2);
-        maxDate.setMonth(maxDate.getMonth() + 2);
-    } else {
-        btnMonths.className = 'px-3 py-1 rounded-md bg-blue-600 text-white text-sm font-medium transition duration-200';
-        btnYears.className = 'px-3 py-1 rounded-md bg-transparent text-gray-700 text-sm font-medium hover:bg-gray-200 transition duration-200';
-
-        // For months view, show 12 months centered around today
-        const today = new Date();
-        minDate = new Date(today);
-        minDate.setMonth(minDate.getMonth() - 6);
-        maxDate = new Date(today);
-        maxDate.setMonth(maxDate.getMonth() + 6);
-    }
-
-    // Re-render timeline and policy bars
-    renderTimeLabels();
-    clearAndRenderPolicyBars();
-}
-
-// Render time labels (years or months)
+// Render time labels (months only)
 function renderTimeLabels() {
     const container = document.getElementById('year-labels');
     if (!container) return;
 
     // Clear existing markers
     container.innerHTML = '';
-
-    if (currentTimescale === 'years') {
-        renderYearMarkers(container);
-    } else {
-        renderMonthMarkers(container);
-    }
+    renderMonthMarkers(container);
 
     // Re-render today marker
     renderTodayMarker();
-}
-
-// Render year markers
-function renderYearMarkers(container) {
-    const startYear = minDate.getFullYear();
-    const endYear = maxDate.getFullYear();
-    const yearRange = endYear - startYear + 1;
-
-    // If too many years, show every other year
-    const step = yearRange > 10 ? 2 : 1;
-
-    for (let year = startYear; year <= endYear; year += step) {
-        const yearDate = new Date(year, 0, 1);
-        if (yearDate >= minDate && yearDate <= maxDate) {
-            const percent = dateToPercent(yearDate.toISOString().split('T')[0], minDate, maxDate);
-
-            const marker = document.createElement('div');
-            marker.className = 'year-marker';
-            marker.style.left = percent + '%';
-            marker.style.minWidth = '50px'; // Ensure minimum spacing
-            marker.textContent = year;
-            container.appendChild(marker);
-        }
-    }
 }
 
 // Render month markers
