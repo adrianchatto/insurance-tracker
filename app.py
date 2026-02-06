@@ -24,30 +24,99 @@ def init_db():
     conn = get_db()
     c = conn.cursor()
     
-    # Create policies table with new fields
-    c.execute('''CREATE TABLE IF NOT EXISTS policies
+    # Check if old tables exist (for migration)
+    c.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='policies'")
+    old_policies_exists = c.fetchone() is not None
+    c.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='budget_items'")
+    old_budget_items_exists = c.fetchone() is not None
+
+    # Create unified financial_items table
+    c.execute('''CREATE TABLE IF NOT EXISTS financial_items
                  (id INTEGER PRIMARY KEY AUTOINCREMENT,
-                  friendly_name TEXT NOT NULL,
-                  policy_number TEXT NOT NULL,
-                  insurer TEXT NOT NULL,
-                  category TEXT NOT NULL,
-                  start_date TEXT NOT NULL,
-                  end_date TEXT NOT NULL,
+                  type TEXT NOT NULL CHECK(type IN ('income', 'expense')),
+                  name TEXT NOT NULL,
+                  category TEXT,
+                  notes TEXT,
+                  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                   monthly_amount REAL,
                   annual_amount REAL,
+                  frequency TEXT DEFAULT 'monthly' CHECK(frequency IN ('monthly', 'annual', 'one-time')),
+                  is_fixed_cost INTEGER DEFAULT 0,
+                  is_policy INTEGER DEFAULT 0,
+                  policy_number TEXT,
+                  insurer TEXT,
+                  start_date TEXT,
+                  end_date TEXT,
                   remaining_balance REAL,
                   account_source TEXT,
-                  insurer_website TEXT,
-                  notes TEXT,
-                  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)''')
-    
+                  insurer_website TEXT)''')
+
+    # Migrate data from old tables if they exist
+    if old_policies_exists and old_budget_items_exists:
+        # Check if financial_items is empty (migration not done yet)
+        c.execute("SELECT COUNT(*) FROM financial_items")
+        if c.fetchone()[0] == 0:
+            print("Migrating data from old schema to unified financial_items table...")
+
+            # Migrate policies
+            c.execute('''INSERT INTO financial_items
+                        (type, name, category, notes, created_at,
+                         monthly_amount, annual_amount, frequency, is_fixed_cost,
+                         is_policy, policy_number, insurer, start_date, end_date,
+                         remaining_balance, account_source, insurer_website)
+                        SELECT 'expense', friendly_name, category, notes, created_at,
+                               monthly_amount, annual_amount, 'monthly', 1,
+                               1, policy_number, insurer, start_date, end_date,
+                               remaining_balance, account_source, insurer_website
+                        FROM policies''')
+
+            # Migrate budget_items (excluding duplicates linked from policies)
+            c.execute('''INSERT INTO financial_items
+                        (type, name, category, notes, created_at,
+                         monthly_amount, frequency, is_fixed_cost, is_policy)
+                        SELECT type, name, category, notes, created_at,
+                               amount, frequency, is_fixed_cost, 0
+                        FROM budget_items
+                        WHERE NOT EXISTS (
+                            SELECT 1 FROM policies
+                            WHERE policies.friendly_name = budget_items.name
+                            AND budget_items.notes LIKE 'Linked from policy:%'
+                        )''')
+
+            conn.commit()
+            print(f"Migration complete. Migrated data to financial_items table.")
+
+            # Drop old tables
+            c.execute("DROP TABLE IF EXISTS policies")
+            c.execute("DROP TABLE IF EXISTS budget_items")
+            print("Dropped old tables: policies and budget_items")
+
+    # Create indexes for performance
+    c.execute("CREATE INDEX IF NOT EXISTS idx_is_policy ON financial_items(is_policy)")
+    c.execute("CREATE INDEX IF NOT EXISTS idx_type_is_policy ON financial_items(type, is_policy)")
+    c.execute("CREATE INDEX IF NOT EXISTS idx_is_policy_end_date ON financial_items(is_policy, end_date)")
+
+    # Create compatibility views for rollback safety
+    c.execute('''CREATE VIEW IF NOT EXISTS policies AS
+                 SELECT id, name as friendly_name, policy_number, insurer, category,
+                        start_date, end_date, monthly_amount, annual_amount,
+                        remaining_balance, account_source, insurer_website, notes, created_at
+                 FROM financial_items
+                 WHERE is_policy = 1''')
+
+    c.execute('''CREATE VIEW IF NOT EXISTS budget_items AS
+                 SELECT id, type, name, monthly_amount as amount, category,
+                        frequency, is_fixed_cost, notes, created_at
+                 FROM financial_items
+                 WHERE is_policy = 0''')
+
     # Create categories table
     c.execute('''CREATE TABLE IF NOT EXISTS categories
                  (id INTEGER PRIMARY KEY AUTOINCREMENT,
                   name TEXT UNIQUE NOT NULL,
                   color TEXT DEFAULT '#3B82F6',
                   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)''')
-    
+
     # Create users table (email as username)
     c.execute('''CREATE TABLE IF NOT EXISTS users
                  (id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -56,24 +125,12 @@ def init_db():
                   is_admin INTEGER DEFAULT 0,
                   enabled INTEGER DEFAULT 1,
                   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)''')
-    
+
     # Create settings table
     c.execute('''CREATE TABLE IF NOT EXISTS settings
                  (id INTEGER PRIMARY KEY AUTOINCREMENT,
                   key TEXT UNIQUE NOT NULL,
                   value TEXT NOT NULL)''')
-
-    # Create budget_items table
-    c.execute('''CREATE TABLE IF NOT EXISTS budget_items
-                 (id INTEGER PRIMARY KEY AUTOINCREMENT,
-                  type TEXT NOT NULL,
-                  name TEXT NOT NULL,
-                  amount REAL NOT NULL,
-                  category TEXT,
-                  frequency TEXT DEFAULT 'monthly',
-                  is_fixed_cost INTEGER DEFAULT 0,
-                  notes TEXT,
-                  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)''')
 
     # Check if admin user exists
     c.execute("SELECT * FROM users WHERE email = 'admin@policytracker.local'")
@@ -208,9 +265,9 @@ def index():
     c = conn.cursor()
     
     if category_filter:
-        c.execute("SELECT * FROM policies WHERE category = ? ORDER BY end_date", (category_filter,))
+        c.execute("SELECT * FROM financial_items WHERE is_policy = 1 AND category = ? ORDER BY end_date", (category_filter,))
     else:
-        c.execute("SELECT * FROM policies ORDER BY end_date")
+        c.execute("SELECT * FROM financial_items WHERE is_policy = 1 ORDER BY end_date")
     
     policies = c.fetchall()
 
@@ -237,7 +294,7 @@ def calendar():
     c = conn.cursor()
 
     # Get all policies ordered by category and start date
-    c.execute("SELECT * FROM policies ORDER BY category, start_date")
+    c.execute("SELECT * FROM financial_items WHERE is_policy = 1 ORDER BY category, start_date")
     policies = c.fetchall()
 
     # Get categories for grouping and colors
@@ -278,42 +335,31 @@ def budget():
 
     # Get pagination parameters
     expenses_page = request.args.get('expenses_page', 1, type=int)
-    policies_page = request.args.get('policies_page', 1, type=int)
     per_page = request.args.get('per_page', 10, type=int)
 
     # Validate per_page values
     if per_page not in [10, 25, 50, 100]:
         per_page = 10
 
-    # Get all budget items
-    c.execute("SELECT * FROM budget_items ORDER BY type, category, name")
+    # Get all financial items (includes policies, expenses, and income)
+    c.execute("SELECT *, name as friendly_name, monthly_amount as amount FROM financial_items ORDER BY type, category, name")
     items = c.fetchall()
 
     # Get categories for dropdown
     c.execute("SELECT name, color FROM categories ORDER BY name")
     categories = c.fetchall()
 
-    # Get all policies for linking
-    c.execute("""SELECT p.*, c.color as category_color
-                 FROM policies p
-                 LEFT JOIN categories c ON p.category = c.name
-                 ORDER BY p.category, p.friendly_name""")
-    all_policies = c.fetchall()
-
-    # Get existing budget item names to check if policy is already linked
-    budget_item_names = set(item['name'] for item in items)
-
     conn.close()
 
-    # Separate income and expenses
+    # Separate income and expenses (expenses include policies)
     income_items = [dict(item) for item in items if item['type'] == 'income']
     all_expense_items = [dict(item) for item in items if item['type'] == 'expense']
 
     # Calculate totals (use all items, not paginated)
-    total_income = sum(item['amount'] for item in income_items)
-    total_expenses = sum(item['amount'] for item in all_expense_items)
-    fixed_costs = sum(item['amount'] for item in all_expense_items if item['is_fixed_cost'])
-    discretionary = sum(item['amount'] for item in all_expense_items if not item['is_fixed_cost'])
+    total_income = sum(item['amount'] or 0 for item in income_items)
+    total_expenses = sum(item['amount'] or 0 for item in all_expense_items)
+    fixed_costs = sum(item['amount'] or 0 for item in all_expense_items if item['is_fixed_cost'])
+    discretionary = sum(item['amount'] or 0 for item in all_expense_items if not item['is_fixed_cost'])
 
     # Group expenses by category for pie chart
     expenses_by_category = {}
@@ -321,14 +367,7 @@ def budget():
         cat = item['category'] or 'Other'
         if cat not in expenses_by_category:
             expenses_by_category[cat] = 0
-        expenses_by_category[cat] += item['amount']
-
-    # Enhance policies with linked status
-    policies_enhanced = []
-    for policy in all_policies:
-        policy_dict = dict(policy)
-        policy_dict['is_linked'] = policy['friendly_name'] in budget_item_names
-        policies_enhanced.append(policy_dict)
+        expenses_by_category[cat] += (item['amount'] or 0)
 
     # Paginate expenses
     expenses_total = len(all_expense_items)
@@ -337,18 +376,10 @@ def budget():
     expenses_end = expenses_start + per_page
     expense_items = all_expense_items[expenses_start:expenses_end]
 
-    # Paginate policies
-    policies_total = len(policies_enhanced)
-    policies_total_pages = (policies_total + per_page - 1) // per_page
-    policies_start = (policies_page - 1) * per_page
-    policies_end = policies_start + per_page
-    policies = policies_enhanced[policies_start:policies_end]
-
     return render_template('budget.html',
                           income_items=income_items,
                           expense_items=expense_items,
                           categories=categories,
-                          policies=policies,
                           total_income=total_income,
                           total_expenses=total_expenses,
                           fixed_costs=fixed_costs,
@@ -356,12 +387,9 @@ def budget():
                           expenses_by_category=expenses_by_category,
                           net_income=total_income - total_expenses,
                           expenses_page=expenses_page,
-                          policies_page=policies_page,
                           per_page=per_page,
                           expenses_total=expenses_total,
-                          policies_total=policies_total,
-                          expenses_total_pages=expenses_total_pages,
-                          policies_total_pages=policies_total_pages)
+                          expenses_total_pages=expenses_total_pages)
 
 @app.route('/budget/add', methods=['POST'])
 @login_required
@@ -380,9 +408,9 @@ def add_budget_item():
 
     conn = get_db()
     c = conn.cursor()
-    c.execute("""INSERT INTO budget_items (type, name, amount, category, frequency, is_fixed_cost, notes)
-                 VALUES (?, ?, ?, ?, ?, ?, ?)""",
-             (item_type, name, float(amount), category, frequency, is_fixed_cost, notes))
+    c.execute("""INSERT INTO financial_items (type, name, monthly_amount, category, frequency, is_fixed_cost, notes, is_policy)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+             (item_type, name, float(amount), category, frequency, is_fixed_cost, notes, 0))
     conn.commit()
     conn.close()
 
@@ -408,9 +436,9 @@ def edit_budget_item(id):
             flash('Please fill in all required fields.', 'error')
             return redirect(url_for('budget'))
 
-        c.execute("""UPDATE budget_items
-                     SET type=?, name=?, amount=?, category=?, frequency=?, is_fixed_cost=?, notes=?
-                     WHERE id=?""",
+        c.execute("""UPDATE financial_items
+                     SET type=?, name=?, monthly_amount=?, category=?, frequency=?, is_fixed_cost=?, notes=?
+                     WHERE id=? AND is_policy=0""",
                  (item_type, name, float(amount), category, frequency, is_fixed_cost, notes, id))
         conn.commit()
         conn.close()
@@ -419,7 +447,7 @@ def edit_budget_item(id):
         return redirect(url_for('budget'))
 
     # GET request - fetch item data
-    c.execute("SELECT * FROM budget_items WHERE id=?", (id,))
+    c.execute("SELECT *, monthly_amount as amount FROM financial_items WHERE id=? AND is_policy=0", (id,))
     item = c.fetchone()
     conn.close()
 
@@ -439,48 +467,12 @@ def edit_budget_item(id):
         'notes': item['notes']
     }
 
-@app.route('/budget/link-policy/<int:policy_id>', methods=['POST'])
-@login_required
-def link_policy_to_budget(policy_id):
-    is_fixed_cost = 1 if request.form.get('is_fixed_cost') == '1' else 0
-
-    conn = get_db()
-    c = conn.cursor()
-
-    # Get policy details
-    c.execute("SELECT * FROM policies WHERE id=?", (policy_id,))
-    policy = c.fetchone()
-
-    if not policy:
-        flash('Policy not found.', 'error')
-        return redirect(url_for('budget'))
-
-    # Check if already linked
-    c.execute("SELECT * FROM budget_items WHERE name=? AND type='expense'", (policy['friendly_name'],))
-    existing = c.fetchone()
-
-    if existing:
-        flash('This policy is already linked to the budget.', 'error')
-    else:
-        # Create budget item from policy
-        amount = policy['monthly_amount'] if policy['monthly_amount'] else 0
-        notes = f"Linked from policy: {policy['policy_number']}"
-
-        c.execute("""INSERT INTO budget_items (type, name, amount, category, frequency, is_fixed_cost, notes)
-                     VALUES (?, ?, ?, ?, ?, ?, ?)""",
-                 ('expense', policy['friendly_name'], float(amount), policy['category'], 'monthly', is_fixed_cost, notes))
-        conn.commit()
-        flash(f'Policy "{policy["friendly_name"]}" added to budget as {"fixed" if is_fixed_cost else "discretionary"} expense!', 'success')
-
-    conn.close()
-    return redirect(url_for('budget'))
-
 @app.route('/budget/delete/<int:id>')
 @login_required
 def delete_budget_item(id):
     conn = get_db()
     c = conn.cursor()
-    c.execute("DELETE FROM budget_items WHERE id=?", (id,))
+    c.execute("DELETE FROM financial_items WHERE id=?", (id,))
     conn.commit()
     conn.close()
 
@@ -515,11 +507,13 @@ def add_policy():
 
     conn = get_db()
     c = conn.cursor()
-    c.execute("""INSERT INTO policies (friendly_name, policy_number, insurer, category, start_date, end_date,
-                 monthly_amount, annual_amount, remaining_balance, account_source, insurer_website, notes)
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-             (friendly_name, policy_number, insurer, category, start_date, end_date,
-              monthly_amount, annual_amount, remaining_balance, account_source, insurer_website, notes))
+    c.execute("""INSERT INTO financial_items (type, name, policy_number, insurer, category, start_date, end_date,
+                 monthly_amount, annual_amount, remaining_balance, account_source, insurer_website, notes,
+                 frequency, is_fixed_cost, is_policy)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+             ('expense', friendly_name, policy_number, insurer, category, start_date, end_date,
+              monthly_amount, annual_amount, remaining_balance, account_source, insurer_website, notes,
+              'monthly', 1, 1))
     conn.commit()
     conn.close()
     
@@ -556,10 +550,10 @@ def edit_policy(id):
             flash('Please fill in all required fields.', 'error')
             return redirect(url_for('edit_policy', id=id))
 
-        c.execute("""UPDATE policies
-                     SET friendly_name=?, policy_number=?, insurer=?, category=?, start_date=?, end_date=?,
+        c.execute("""UPDATE financial_items
+                     SET name=?, policy_number=?, insurer=?, category=?, start_date=?, end_date=?,
                          monthly_amount=?, annual_amount=?, remaining_balance=?, account_source=?, insurer_website=?, notes=?
-                     WHERE id=?""",
+                     WHERE id=? AND is_policy=1""",
                  (friendly_name, policy_number, insurer, category, start_date, end_date,
                   monthly_amount, annual_amount, remaining_balance, account_source, insurer_website, notes, id))
         conn.commit()
@@ -568,7 +562,7 @@ def edit_policy(id):
         flash('Policy updated successfully!', 'success')
         return redirect(url_for('index'))
     
-    c.execute("SELECT * FROM policies WHERE id=?", (id,))
+    c.execute("SELECT * FROM financial_items WHERE id=? AND is_policy=1", (id,))
     policy = c.fetchone()
 
     c.execute("SELECT name, color FROM categories ORDER BY name")
@@ -587,7 +581,7 @@ def edit_policy(id):
 def delete_policy(id):
     conn = get_db()
     c = conn.cursor()
-    c.execute("DELETE FROM policies WHERE id=?", (id,))
+    c.execute("DELETE FROM financial_items WHERE id=? AND is_policy=1", (id,))
     conn.commit()
     conn.close()
     
@@ -857,23 +851,25 @@ def download_backup():
         conn = get_db()
         c = conn.cursor()
         
-        c.execute("SELECT * FROM policies")
-        policies = [dict(row) for row in c.fetchall()]
-        
+        # Backup financial_items (unified table)
+        c.execute("SELECT * FROM financial_items")
+        financial_items = [dict(row) for row in c.fetchall()]
+
         c.execute("SELECT id, email, is_admin, enabled, created_at FROM users")
         users = [dict(row) for row in c.fetchall()]
-        
+
         c.execute("SELECT * FROM categories")
         categories = [dict(row) for row in c.fetchall()]
-        
+
         c.execute("SELECT * FROM settings")
         settings = [dict(row) for row in c.fetchall()]
-        
+
         conn.close()
-        
+
         backup_data = {
             'backup_date': datetime.now().isoformat(),
-            'policies': policies,
+            'version': '2.0',  # Mark as new format
+            'financial_items': financial_items,
             'users': users,
             'categories': categories,
             'settings': settings
@@ -907,28 +903,64 @@ def restore_backup():
             
             conn = get_db()
             c = conn.cursor()
-            
-            c.execute("DELETE FROM policies")
+
+            # Clear existing data
+            c.execute("DELETE FROM financial_items")
             c.execute("DELETE FROM categories")
             c.execute("DELETE FROM settings")
-            
-            for policy in backup_data.get('policies', []):
-                c.execute("""INSERT INTO policies (id, friendly_name, policy_number, insurer, category, start_date, end_date,
-                           monthly_amount, annual_amount, account_source, insurer_website, notes, created_at)
-                           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-                         (policy.get('id'), policy.get('friendly_name'), policy.get('policy_number'), policy.get('insurer'),
-                          policy.get('category'), policy.get('start_date'), policy.get('end_date'), policy.get('monthly_amount'),
-                          policy.get('annual_amount'), policy.get('account_source'), policy.get('insurer_website'),
-                          policy.get('notes'), policy.get('created_at')))
-            
+
+            # Check if this is a new format backup (v2.0) or old format
+            if 'financial_items' in backup_data:
+                # New format - restore financial_items directly
+                for item in backup_data.get('financial_items', []):
+                    c.execute("""INSERT INTO financial_items
+                               (id, type, name, category, notes, created_at,
+                                monthly_amount, annual_amount, frequency, is_fixed_cost, is_policy,
+                                policy_number, insurer, start_date, end_date,
+                                remaining_balance, account_source, insurer_website)
+                               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                             (item.get('id'), item.get('type'), item.get('name'), item.get('category'),
+                              item.get('notes'), item.get('created_at'), item.get('monthly_amount'),
+                              item.get('annual_amount'), item.get('frequency'), item.get('is_fixed_cost'),
+                              item.get('is_policy'), item.get('policy_number'), item.get('insurer'),
+                              item.get('start_date'), item.get('end_date'), item.get('remaining_balance'),
+                              item.get('account_source'), item.get('insurer_website')))
+            else:
+                # Old format - migrate policies and budget_items to financial_items
+                for policy in backup_data.get('policies', []):
+                    c.execute("""INSERT INTO financial_items
+                               (id, type, name, category, notes, created_at,
+                                monthly_amount, annual_amount, frequency, is_fixed_cost, is_policy,
+                                policy_number, insurer, start_date, end_date,
+                                remaining_balance, account_source, insurer_website)
+                               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                             (policy.get('id'), 'expense', policy.get('friendly_name'), policy.get('category'),
+                              policy.get('notes'), policy.get('created_at'), policy.get('monthly_amount'),
+                              policy.get('annual_amount'), 'monthly', 1, 1,
+                              policy.get('policy_number'), policy.get('insurer'), policy.get('start_date'),
+                              policy.get('end_date'), policy.get('remaining_balance'),
+                              policy.get('account_source'), policy.get('insurer_website')))
+
+                # Migrate budget_items if they exist in backup
+                for item in backup_data.get('budget_items', []):
+                    c.execute("""INSERT INTO financial_items
+                               (id, type, name, category, notes, created_at,
+                                monthly_amount, frequency, is_fixed_cost, is_policy)
+                               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                             (item.get('id'), item.get('type'), item.get('name'),
+                              item.get('category'), item.get('notes'), item.get('created_at'),
+                              item.get('amount'), item.get('frequency'), item.get('is_fixed_cost'), 0))
+
+            # Restore categories
             for category in backup_data.get('categories', []):
                 c.execute("INSERT INTO categories (id, name, created_at) VALUES (?, ?, ?)",
                          (category.get('id'), category.get('name'), category.get('created_at')))
-            
+
+            # Restore settings
             for setting in backup_data.get('settings', []):
                 c.execute("INSERT INTO settings (key, value) VALUES (?, ?)",
                          (setting.get('key'), setting.get('value')))
-            
+
             conn.commit()
             conn.close()
             
