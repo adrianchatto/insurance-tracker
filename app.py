@@ -12,6 +12,9 @@ from email.mime.multipart import MIMEMultipart
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', 'your-secret-key-here')
 
+# Application version
+VERSION = "2.0.0"
+
 # Database configuration
 DB_PATH = os.environ.get('DB_PATH', '/data/policies.db')
 
@@ -178,7 +181,7 @@ init_db()
 
 @app.context_processor
 def inject_now():
-    return {'now': datetime.now()}
+    return {'now': datetime.now(), 'version': VERSION}
 
 @app.template_filter('format_currency')
 def format_currency(value):
@@ -605,9 +608,58 @@ def delete_policy(id):
     c.execute("DELETE FROM financial_items WHERE id=? AND is_policy=1", (id,))
     conn.commit()
     conn.close()
-    
+
     flash('Policy deleted successfully!', 'success')
     return redirect(url_for('policies'))
+
+@app.route('/search')
+@login_required
+def search():
+    query = request.args.get('q', '').strip()
+
+    if not query:
+        flash('Please enter a search term.', 'error')
+        return redirect(url_for('budget'))
+
+    conn = get_db()
+    c = conn.cursor()
+
+    # Search across all financial items (policies, expenses, income)
+    search_pattern = f"%{query}%"
+    c.execute("""
+        SELECT *, name as friendly_name, monthly_amount as amount
+        FROM financial_items
+        WHERE name LIKE ?
+           OR category LIKE ?
+           OR notes LIKE ?
+           OR policy_number LIKE ?
+           OR insurer LIKE ?
+        ORDER BY type, is_policy DESC, name
+    """, (search_pattern, search_pattern, search_pattern, search_pattern, search_pattern))
+
+    results = c.fetchall()
+
+    # Get categories for display
+    c.execute("SELECT name, color FROM categories ORDER BY name")
+    categories = c.fetchall()
+
+    conn.close()
+
+    # Convert to dict and add category colors
+    results_list = []
+    category_colors = {cat['name']: cat['color'] for cat in categories}
+
+    for item in results:
+        item_dict = dict(item)
+        item_dict['category_color'] = category_colors.get(item['category'], '#6B7280')
+
+        # Add days until expiry for policies
+        if item['is_policy'] and item['end_date']:
+            item_dict['days_until_expiry'] = calculate_days_until_expiry(item['end_date'])
+
+        results_list.append(item_dict)
+
+    return render_template('search.html', query=query, results=results_list, result_count=len(results_list))
 
 @app.route('/categories', methods=['GET', 'POST'])
 @login_required
