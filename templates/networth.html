@@ -175,7 +175,7 @@
                 <i class="fas fa-times text-2xl"></i>
             </button>
         </div>
-        <form method="POST" action="{{ url_for('add_policy') }}">
+        <form method="POST" action="{{ url_for('add_policy') }}" onsubmit="return setDefaultDates()">
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                     <label class="block text-gray-700 font-semibold mb-2">Account Name *</label>
@@ -217,14 +217,16 @@
                            class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
                 </div>
                 <div>
-                    <label class="block text-gray-700 font-semibold mb-2">Start Date *</label>
-                    <input type="date" name="start_date" required
+                    <label class="block text-gray-700 font-semibold mb-2">Start Date</label>
+                    <input type="date" name="start_date" id="start_date"
                            class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <p class="text-xs text-gray-500 mt-1">Optional: Leave blank to use today's date</p>
                 </div>
                 <div>
-                    <label class="block text-gray-700 font-semibold mb-2">End Date/Maturity *</label>
-                    <input type="date" name="end_date" required
+                    <label class="block text-gray-700 font-semibold mb-2">End Date/Maturity</label>
+                    <input type="date" name="end_date" id="end_date"
                            class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <p class="text-xs text-gray-500 mt-1">Optional: For mortgages, enter payoff date. For ISAs/Pensions, leave blank.</p>
                 </div>
                 <div>
                     <label class="block text-gray-700 font-semibold mb-2">Annual Amount</label>
@@ -286,6 +288,26 @@ function toggleBalanceField() {
     } else {
         balanceInput.placeholder = 'Enter current balance';
     }
+}
+
+function setDefaultDates() {
+    const startDateInput = document.getElementById('start_date');
+    const endDateInput = document.getElementById('end_date');
+
+    // If start date is empty, set to today
+    if (!startDateInput.value) {
+        const today = new Date().toISOString().split('T')[0];
+        startDateInput.value = today;
+    }
+
+    // If end date is empty, set to 50 years from now (for ISAs/Pensions)
+    if (!endDateInput.value) {
+        const futureDate = new Date();
+        futureDate.setFullYear(futureDate.getFullYear() + 50);
+        endDateInput.value = futureDate.toISOString().split('T')[0];
+    }
+
+    return true;
 }
 </script>
 {% endblock %}
