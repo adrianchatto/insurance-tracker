@@ -16,39 +16,125 @@
             </form>
         </div>
         <div class="flex gap-3">
-            <!-- Multi-select Category Filter -->
+            <!-- Comprehensive Filter Panel -->
             <div class="relative">
-                <button onclick="toggleCategoryFilter()"
+                <button onclick="toggleFilterPanel()" id="filterButton"
                         class="px-4 py-2 border border-gray-300 rounded-lg bg-white hover:bg-gray-50 flex items-center gap-2">
                     <i class="fas fa-filter text-gray-600"></i>
                     <span id="filterButtonText">
-                        {% if selected_categories %}
-                            {{ selected_categories|length }} Selected
+                        {% set filter_count = selected_categories|length + selected_providers|length + selected_expiry|length %}
+                        {% if selected_amount %}{% set filter_count = filter_count + 1 %}{% endif %}
+                        {% if filter_count > 0 %}
+                            {{ filter_count }} filter{{ 's' if filter_count != 1 else '' }} active
                         {% else %}
-                            All Categories
+                            Filters
                         {% endif %}
                     </span>
                     <i class="fas fa-chevron-down text-gray-400 text-sm"></i>
                 </button>
-                <div id="categoryFilterDropdown" class="hidden absolute right-0 mt-2 w-64 bg-white border border-gray-300 rounded-lg shadow-lg z-50 max-h-96 overflow-y-auto">
-                    <div class="p-3">
-                        <div class="flex justify-between items-center mb-2 pb-2 border-b">
-                            <span class="font-semibold text-gray-700">Filter by Category</span>
-                            <button onclick="clearFilters()" class="text-sm text-blue-600 hover:text-blue-800">Clear</button>
+
+                <div id="filterPanel" class="hidden absolute right-0 mt-2 w-80 bg-white border border-gray-300 rounded-lg shadow-xl z-50 max-h-96 overflow-y-auto">
+                    <form method="get" action="{{ url_for('policies') }}" class="p-4">
+                        <!-- Preserve sort parameters -->
+                        <input type="hidden" name="sort" value="{{ current_sort }}">
+                        <input type="hidden" name="order" value="{{ current_order }}">
+
+                        <div class="flex justify-between items-center mb-3 pb-3 border-b">
+                            <span class="font-semibold text-gray-800">Filters</span>
+                            <button type="button" onclick="clearFilters()" class="text-sm text-blue-600 hover:text-blue-800">
+                                Clear All
+                            </button>
                         </div>
-                        <form id="categoryFilterForm" method="get" action="{{ url_for('policies') }}">
+
+                        <!-- Category Filter -->
+                        <div class="mb-4">
+                            <div class="font-medium text-gray-700 mb-2 text-sm">Category</div>
                             {% for category in categories %}
-                            <label class="flex items-center py-2 hover:bg-gray-50 cursor-pointer rounded px-2">
+                            <label class="flex items-center py-1.5 hover:bg-gray-50 cursor-pointer rounded px-2">
                                 <input type="checkbox" name="category" value="{{ category.name }}"
                                        {% if category.name in selected_categories %}checked{% endif %}
-                                       onchange="updateFilter()"
-                                       class="rounded text-blue-600 focus:ring-blue-500 mr-3">
+                                       class="rounded text-blue-600 focus:ring-blue-500 mr-2">
                                 <span class="inline-block w-3 h-3 rounded-full mr-2" style="background-color: {{ category.color }}"></span>
                                 <span class="text-sm text-gray-700">{{ category.name }}</span>
                             </label>
                             {% endfor %}
-                        </form>
-                    </div>
+                        </div>
+
+                        <!-- Expiry Status Filter -->
+                        <div class="mb-4 pt-3 border-t">
+                            <div class="font-medium text-gray-700 mb-2 text-sm">Expiry Status</div>
+                            <label class="flex items-center py-1.5 hover:bg-gray-50 cursor-pointer rounded px-2">
+                                <input type="checkbox" name="expiry" value="expired"
+                                       {% if 'expired' in selected_expiry %}checked{% endif %}
+                                       class="rounded text-blue-600 focus:ring-blue-500 mr-2">
+                                <span class="text-sm text-gray-700">Expired</span>
+                            </label>
+                            <label class="flex items-center py-1.5 hover:bg-gray-50 cursor-pointer rounded px-2">
+                                <input type="checkbox" name="expiry" value="soon"
+                                       {% if 'soon' in selected_expiry %}checked{% endif %}
+                                       class="rounded text-blue-600 focus:ring-blue-500 mr-2">
+                                <span class="text-sm text-gray-700">Expiring Soon (&lt;30 days)</span>
+                            </label>
+                            <label class="flex items-center py-1.5 hover:bg-gray-50 cursor-pointer rounded px-2">
+                                <input type="checkbox" name="expiry" value="active"
+                                       {% if 'active' in selected_expiry %}checked{% endif %}
+                                       class="rounded text-blue-600 focus:ring-blue-500 mr-2">
+                                <span class="text-sm text-gray-700">Active (&gt;30 days)</span>
+                            </label>
+                        </div>
+
+                        <!-- Provider Filter -->
+                        <div class="mb-4 pt-3 border-t">
+                            <div class="font-medium text-gray-700 mb-2 text-sm">Provider</div>
+                            {% for provider in providers[:8] %}
+                            <label class="flex items-center py-1.5 hover:bg-gray-50 cursor-pointer rounded px-2">
+                                <input type="checkbox" name="provider" value="{{ provider }}"
+                                       {% if provider in selected_providers %}checked{% endif %}
+                                       class="rounded text-blue-600 focus:ring-blue-500 mr-2">
+                                <span class="text-sm text-gray-700">{{ provider }}</span>
+                            </label>
+                            {% endfor %}
+                        </div>
+
+                        <!-- Amount Range Filter -->
+                        <div class="mb-4 pt-3 border-t">
+                            <div class="font-medium text-gray-700 mb-2 text-sm">Monthly Amount</div>
+                            <label class="flex items-center py-1.5 hover:bg-gray-50 cursor-pointer rounded px-2">
+                                <input type="radio" name="amount_range" value=""
+                                       {% if not selected_amount %}checked{% endif %}
+                                       class="text-blue-600 focus:ring-blue-500 mr-2">
+                                <span class="text-sm text-gray-700">All amounts</span>
+                            </label>
+                            <label class="flex items-center py-1.5 hover:bg-gray-50 cursor-pointer rounded px-2">
+                                <input type="radio" name="amount_range" value="under100"
+                                       {% if selected_amount == 'under100' %}checked{% endif %}
+                                       class="text-blue-600 focus:ring-blue-500 mr-2">
+                                <span class="text-sm text-gray-700">Under £100</span>
+                            </label>
+                            <label class="flex items-center py-1.5 hover:bg-gray-50 cursor-pointer rounded px-2">
+                                <input type="radio" name="amount_range" value="100-500"
+                                       {% if selected_amount == '100-500' %}checked{% endif %}
+                                       class="text-blue-600 focus:ring-blue-500 mr-2">
+                                <span class="text-sm text-gray-700">£100 - £500</span>
+                            </label>
+                            <label class="flex items-center py-1.5 hover:bg-gray-50 cursor-pointer rounded px-2">
+                                <input type="radio" name="amount_range" value="500-1000"
+                                       {% if selected_amount == '500-1000' %}checked{% endif %}
+                                       class="text-blue-600 focus:ring-blue-500 mr-2">
+                                <span class="text-sm text-gray-700">£500 - £1,000</span>
+                            </label>
+                            <label class="flex items-center py-1.5 hover:bg-gray-50 cursor-pointer rounded px-2">
+                                <input type="radio" name="amount_range" value="over1000"
+                                       {% if selected_amount == 'over1000' %}checked{% endif %}
+                                       class="text-blue-600 focus:ring-blue-500 mr-2">
+                                <span class="text-sm text-gray-700">Over £1,000</span>
+                            </label>
+                        </div>
+
+                        <button type="submit" class="w-full py-2 px-4 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium">
+                            Apply Filters
+                        </button>
+                    </form>
                 </div>
             </div>
             <button onclick="document.getElementById('addModal').classList.remove('hidden')"
@@ -306,29 +392,21 @@ function toggleRemainingBalance(context) {
     }
 }
 
-// Category filter functions
-function toggleCategoryFilter() {
-    const dropdown = document.getElementById('categoryFilterDropdown');
-    dropdown.classList.toggle('hidden');
-}
-
-function updateFilter() {
-    document.getElementById('categoryFilterForm').submit();
+// Filter panel functions
+function toggleFilterPanel() {
+    document.getElementById('filterPanel').classList.toggle('hidden');
 }
 
 function clearFilters() {
-    const checkboxes = document.querySelectorAll('#categoryFilterForm input[type="checkbox"]');
-    checkboxes.forEach(cb => cb.checked = false);
-    document.getElementById('categoryFilterForm').submit();
+    window.location.href = '{{ url_for("policies") }}';
 }
 
 // Close dropdown when clicking outside
 document.addEventListener('click', function(event) {
-    const dropdown = document.getElementById('categoryFilterDropdown');
-    const button = event.target.closest('button');
-
-    if (!dropdown.contains(event.target) && button?.onclick?.toString().indexOf('toggleCategoryFilter') === -1) {
-        dropdown.classList.add('hidden');
+    const panel = document.getElementById('filterPanel');
+    const button = document.getElementById('filterButton');
+    if (panel && button && !panel.contains(event.target) && !button.contains(event.target)) {
+        panel.classList.add('hidden');
     }
 });
 </script>

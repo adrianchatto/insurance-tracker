@@ -295,11 +295,54 @@ def get_valid_order(order, default='asc'):
         return order.lower()
     return default
 
+def get_unique_providers():
+    """Get list of unique insurers for filter dropdown"""
+    conn = get_db()
+    c = conn.cursor()
+    c.execute("""SELECT DISTINCT insurer
+                 FROM financial_items
+                 WHERE is_policy = 1 AND insurer IS NOT NULL AND insurer != ''
+                 ORDER BY insurer""")
+    providers = [row['insurer'] for row in c.fetchall()]
+    conn.close()
+    return providers
+
+def apply_expiry_filter(policies, expiry_filters):
+    """Filter policies by expiry status (after days_until_expiry is calculated)"""
+    if not expiry_filters:
+        return policies
+
+    filtered = []
+    for policy in policies:
+        days = policy.get('days_until_expiry', 0)
+        if 'expired' in expiry_filters and days < 0:
+            filtered.append(policy)
+        elif 'soon' in expiry_filters and 0 <= days < 30:
+            filtered.append(policy)
+        elif 'active' in expiry_filters and days >= 30:
+            filtered.append(policy)
+    return filtered
+
+def build_amount_filter_sql(amount_range):
+    """Build SQL WHERE clause for amount ranges"""
+    if amount_range == 'under100':
+        return "monthly_amount < 100"
+    elif amount_range == '100-500':
+        return "monthly_amount BETWEEN 100 AND 500"
+    elif amount_range == '500-1000':
+        return "monthly_amount BETWEEN 500 AND 1000"
+    elif amount_range == 'over1000':
+        return "monthly_amount > 1000"
+    return None
+
 @app.route('/policies')
 @login_required
 def policies():
-    # Support multiple category filters
+    # Extract all filter parameters
     category_filters = request.args.getlist('category')
+    provider_filters = request.args.getlist('provider')
+    expiry_filters = request.args.getlist('expiry')
+    amount_range = request.args.get('amount_range')
 
     # Extract and validate sort parameters
     sort_param = request.args.get('sort', 'end_date')
@@ -311,15 +354,28 @@ def policies():
     conn = get_db()
     c = conn.cursor()
 
-    # Build query with dynamic ORDER BY
+    # Build WHERE clauses
+    where_clauses = ["is_policy = 1"]
+    params = []
+
     if category_filters:
-        # Create placeholders for SQL IN clause
         placeholders = ','.join('?' * len(category_filters))
-        query = f"SELECT * FROM financial_items WHERE is_policy = 1 AND category IN ({placeholders}) ORDER BY {sort_column} {sort_order.upper()}"
-        c.execute(query, category_filters)
-    else:
-        query = f"SELECT * FROM financial_items WHERE is_policy = 1 ORDER BY {sort_column} {sort_order.upper()}"
-        c.execute(query)
+        where_clauses.append(f"category IN ({placeholders})")
+        params.extend(category_filters)
+
+    if provider_filters:
+        placeholders = ','.join('?' * len(provider_filters))
+        where_clauses.append(f"insurer IN ({placeholders})")
+        params.extend(provider_filters)
+
+    amount_filter = build_amount_filter_sql(amount_range)
+    if amount_filter:
+        where_clauses.append(amount_filter)
+
+    # Build and execute query
+    where_sql = " AND ".join(where_clauses)
+    query = f"SELECT * FROM financial_items WHERE {where_sql} ORDER BY {sort_column} {sort_order.upper()}"
+    c.execute(query, params)
 
     policies = c.fetchall()
 
@@ -337,10 +393,21 @@ def policies():
         policy_dict['category_color'] = categories_dict.get(policy['category'], '#3B82F6')
         policies_with_days.append(policy_dict)
 
+    # Apply expiry filter in Python (after calculating days_until_expiry)
+    if expiry_filters:
+        policies_with_days = apply_expiry_filter(policies_with_days, expiry_filters)
+
+    # Get provider list for filter dropdown
+    providers = get_unique_providers()
+
     return render_template('index.html',
                           policies=policies_with_days,
                           categories=categories,
+                          providers=providers,
                           selected_categories=category_filters,
+                          selected_providers=provider_filters,
+                          selected_expiry=expiry_filters,
+                          selected_amount=amount_range,
                           current_sort=sort_param,
                           current_order=sort_order)
 
@@ -406,16 +473,44 @@ def budget():
     sort_column = get_valid_sort(expense_sort, EXPENSE_SORTABLE_COLUMNS, 'name')
     sort_order = get_valid_order(expense_order, 'asc')
 
+    # Extract expense filter parameters
+    type_filters = request.args.getlist('type')  # 'fixed', 'discretionary'
+    freq_filters = request.args.getlist('frequency')  # 'monthly', 'annual', 'one-time'
+    amount_range = request.args.get('amount_range')
+
     # Get income items (no sorting needed typically)
     c.execute("SELECT *, name as friendly_name, monthly_amount as amount FROM financial_items WHERE type='income' ORDER BY name")
     income_items = [dict(item) for item in c.fetchall()]
 
-    # Get expense items with dynamic sorting
+    # Build WHERE clauses for expenses
+    where_clauses = ["type='expense'"]
+    params = []
+
+    if type_filters:
+        type_conditions = []
+        if 'fixed' in type_filters:
+            type_conditions.append("is_fixed_cost = 1")
+        if 'discretionary' in type_filters:
+            type_conditions.append("is_fixed_cost = 0")
+        if type_conditions:
+            where_clauses.append(f"({' OR '.join(type_conditions)})")
+
+    if freq_filters:
+        placeholders = ','.join('?' * len(freq_filters))
+        where_clauses.append(f"frequency IN ({placeholders})")
+        params.extend(freq_filters)
+
+    amount_filter = build_amount_filter_sql(amount_range)
+    if amount_filter:
+        where_clauses.append(amount_filter)
+
+    # Build and execute expense query with filters
+    where_sql = " AND ".join(where_clauses)
     query = f"""SELECT *, name as friendly_name, monthly_amount as amount
                 FROM financial_items
-                WHERE type='expense'
+                WHERE {where_sql}
                 ORDER BY {sort_column} {sort_order.upper()}"""
-    c.execute(query)
+    c.execute(query, params)
     all_expense_items = [dict(item) for item in c.fetchall()]
 
     # Get categories for dropdown
@@ -460,7 +555,10 @@ def budget():
                           expenses_total=expenses_total,
                           expenses_total_pages=expenses_total_pages,
                           expense_sort=expense_sort,
-                          expense_order=expense_order)
+                          expense_order=expense_order,
+                          selected_type=type_filters,
+                          selected_frequency=freq_filters,
+                          selected_amount=amount_range)
 
 @app.route('/budget/add', methods=['POST'])
 @login_required
