@@ -149,6 +149,8 @@ def init_db():
         ('Utilities', '#F59E0B'),     # Orange
         ('Subscriptions', '#8B5CF6'), # Purple
         ('Warranties', '#EC4899'),    # Pink
+        ('ISA', '#14B8A6'),           # Teal
+        ('Pension', '#F97316'),       # Orange
         ('Other', '#6B7280')          # Gray
     ]
     for category, color in default_categories:
@@ -450,6 +452,55 @@ def calendar():
                           policies_by_category=policies_by_category,
                           categories=categories,
                           all_policies=policies_enhanced)
+
+@app.route('/networth')
+@login_required
+def networth():
+    conn = get_db()
+    c = conn.cursor()
+
+    # Get all items with balances (assets and liabilities)
+    c.execute("""SELECT * FROM financial_items
+                 WHERE is_policy = 1 AND remaining_balance IS NOT NULL
+                 ORDER BY category, name""")
+    accounts = c.fetchall()
+
+    # Get categories for colors
+    c.execute("SELECT name, color FROM categories ORDER BY name")
+    categories = c.fetchall()
+
+    conn.close()
+
+    # Enrich accounts with category colors
+    categories_dict = {cat['name']: cat['color'] for cat in categories}
+    accounts_enhanced = []
+    total_assets = 0
+    total_liabilities = 0
+
+    for account in accounts:
+        account_dict = dict(account)
+        account_dict['category_color'] = categories_dict.get(account['category'], '#6B7280')
+
+        # Determine if it's an asset or liability
+        # Mortgages are liabilities (negative), ISAs and Pensions are assets (positive)
+        balance = account['remaining_balance'] or 0
+        account_dict['is_liability'] = account['category'] == 'Mortgage'
+
+        if account_dict['is_liability']:
+            total_liabilities += abs(balance)
+        else:
+            total_assets += balance
+
+        accounts_enhanced.append(account_dict)
+
+    # Calculate net worth
+    net_worth = total_assets - total_liabilities
+
+    return render_template('networth.html',
+                          accounts=accounts_enhanced,
+                          total_assets=total_assets,
+                          total_liabilities=total_liabilities,
+                          net_worth=net_worth)
 
 @app.route('/')
 @app.route('/budget')

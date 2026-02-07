@@ -29,6 +29,9 @@
                         <a href="{{ url_for('policies') }}" class="{% if request.endpoint == 'policies' %}border-indigo-500 text-gray-900{% else %}border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700{% endif %} inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium">
                             <i class="fas fa-table mr-1"></i>Policies
                         </a>
+                        <a href="{{ url_for('networth') }}" class="{% if request.endpoint == 'networth' %}border-indigo-500 text-gray-900{% else %}border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700{% endif %} inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium">
+                            <i class="fas fa-chart-line mr-1"></i>Net Worth
+                        </a>
                         <a href="{{ url_for('calendar') }}" class="{% if request.endpoint == 'calendar' %}border-indigo-500 text-gray-900{% else %}border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700{% endif %} inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium">
                             <i class="fas fa-calendar-alt mr-1"></i>Calendar
                         </a>

@@ -1,0 +1,291 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="bg-white rounded-lg shadow-lg p-6">
+    <div class="flex justify-between items-center mb-6">
+        <h1 class="text-3xl font-bold text-gray-800">Net Worth</h1>
+        <button onclick="document.getElementById('addModal').classList.remove('hidden')"
+                class="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition duration-200">
+            <i class="fas fa-plus mr-2"></i>Add Account
+        </button>
+    </div>
+
+    <!-- Net Worth Summary Cards -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+        <div class="bg-green-50 border border-green-200 rounded-lg p-6">
+            <div class="text-sm text-green-600 font-semibold mb-2">Total Assets</div>
+            <div class="text-3xl font-bold text-green-700">{{ total_assets | format_currency }}</div>
+            <div class="text-xs text-green-600 mt-1">ISAs, Pensions, Savings</div>
+        </div>
+        <div class="bg-red-50 border border-red-200 rounded-lg p-6">
+            <div class="text-sm text-red-600 font-semibold mb-2">Total Liabilities</div>
+            <div class="text-3xl font-bold text-red-700">{{ total_liabilities | format_currency }}</div>
+            <div class="text-xs text-red-600 mt-1">Mortgages, Loans, Debts</div>
+        </div>
+        <div class="{% if net_worth >= 0 %}bg-blue-50 border border-blue-200{% else %}bg-orange-50 border border-orange-200{% endif %} rounded-lg p-6">
+            <div class="text-sm {% if net_worth >= 0 %}text-blue-600{% else %}text-orange-600{% endif %} font-semibold mb-2">Net Worth</div>
+            <div class="text-3xl font-bold {% if net_worth >= 0 %}text-blue-700{% else %}text-orange-700{% endif %}">
+                {{ net_worth | format_currency }}
+            </div>
+            <div class="text-xs {% if net_worth >= 0 %}text-blue-600{% else %}text-orange-600{% endif %} mt-1">Assets - Liabilities</div>
+        </div>
+    </div>
+
+    {% if accounts %}
+    <!-- Assets Section -->
+    {% set assets = accounts | selectattr('is_liability', 'equalto', False) | list %}
+    {% if assets %}
+    <div class="mb-8">
+        <h2 class="text-2xl font-bold text-gray-800 mb-4 flex items-center">
+            <i class="fas fa-piggy-bank text-green-600 mr-2"></i>Assets
+        </h2>
+        <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-200">
+                <thead class="bg-gray-50">
+                    <tr>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Account Name</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Category</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Provider</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Account Number</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Balance</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                    </tr>
+                </thead>
+                <tbody class="bg-white divide-y divide-gray-200">
+                    {% for account in assets %}
+                    <tr class="hover:bg-gray-50">
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <div class="text-sm font-medium text-gray-900">{{ account.name }}</div>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <span class="px-2 py-1 rounded-full text-xs font-semibold text-white" style="background-color: {{ account.category_color }}">{{ account.category }}</span>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ account.insurer or '-' }}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ account.policy_number }}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm font-semibold text-green-600">
+                            {{ account.remaining_balance | format_currency }}
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                            <div class="flex items-center space-x-3">
+                                {% if account.insurer_website %}
+                                <a href="{{ account.insurer_website }}" target="_blank" class="text-blue-600 hover:text-blue-900" title="Visit website">
+                                    <i class="fas fa-external-link-alt"></i>
+                                </a>
+                                {% endif %}
+                                <a href="{{ url_for('edit_policy', id=account.id) }}" class="text-indigo-600 hover:text-indigo-900" title="Edit">
+                                    <i class="fas fa-edit"></i>
+                                </a>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+                <tfoot class="bg-green-50 border-t-2 border-green-300">
+                    <tr>
+                        <td colspan="4" class="px-6 py-4 text-right font-bold text-gray-700">Total Assets:</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm font-bold text-green-700">
+                            {{ total_assets | format_currency }}
+                        </td>
+                        <td></td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Liabilities Section -->
+    {% set liabilities = accounts | selectattr('is_liability', 'equalto', True) | list %}
+    {% if liabilities %}
+    <div class="mb-8">
+        <h2 class="text-2xl font-bold text-gray-800 mb-4 flex items-center">
+            <i class="fas fa-hand-holding-usd text-red-600 mr-2"></i>Liabilities
+        </h2>
+        <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-200">
+                <thead class="bg-gray-50">
+                    <tr>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Account Name</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Category</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Provider</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Account Number</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Balance Owed</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                    </tr>
+                </thead>
+                <tbody class="bg-white divide-y divide-gray-200">
+                    {% for account in liabilities %}
+                    <tr class="hover:bg-gray-50">
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <div class="text-sm font-medium text-gray-900">{{ account.name }}</div>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <span class="px-2 py-1 rounded-full text-xs font-semibold text-white" style="background-color: {{ account.category_color }}">{{ account.category }}</span>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ account.insurer or '-' }}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ account.policy_number }}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm font-semibold text-red-600">
+                            {{ account.remaining_balance | format_currency }}
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                            <div class="flex items-center space-x-3">
+                                {% if account.insurer_website %}
+                                <a href="{{ account.insurer_website }}" target="_blank" class="text-blue-600 hover:text-blue-900" title="Visit website">
+                                    <i class="fas fa-external-link-alt"></i>
+                                </a>
+                                {% endif %}
+                                <a href="{{ url_for('edit_policy', id=account.id) }}" class="text-indigo-600 hover:text-indigo-900" title="Edit">
+                                    <i class="fas fa-edit"></i>
+                                </a>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+                <tfoot class="bg-red-50 border-t-2 border-red-300">
+                    <tr>
+                        <td colspan="4" class="px-6 py-4 text-right font-bold text-gray-700">Total Liabilities:</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm font-bold text-red-700">
+                            {{ total_liabilities | format_currency }}
+                        </td>
+                        <td></td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+    </div>
+    {% endif %}
+
+    {% else %}
+    <div class="text-center py-12">
+        <i class="fas fa-chart-line text-gray-300 text-6xl mb-4"></i>
+        <p class="text-gray-500 text-lg mb-4">No accounts found. Add your first account to start tracking your net worth!</p>
+        <p class="text-gray-400 text-sm">Track ISAs, Pensions, Mortgages, and other financial accounts.</p>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Add Account Modal -->
+<div id="addModal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+    <div class="relative top-10 mx-auto p-5 border w-11/12 md:w-2/3 lg:w-3/4 shadow-lg rounded-lg bg-white max-h-[90vh] overflow-y-auto">
+        <div class="flex justify-between items-center mb-4">
+            <h3 class="text-2xl font-bold text-gray-900">Add New Account</h3>
+            <button onclick="document.getElementById('addModal').classList.add('hidden')"
+                    class="text-gray-400 hover:text-gray-600">
+                <i class="fas fa-times text-2xl"></i>
+            </button>
+        </div>
+        <form method="POST" action="{{ url_for('add_policy') }}">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-gray-700 font-semibold mb-2">Account Name *</label>
+                    <input type="text" name="friendly_name" required placeholder="e.g., Vanguard ISA, Halifax Mortgage"
+                           class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                </div>
+                <div>
+                    <label class="block text-gray-700 font-semibold mb-2">Account Number *</label>
+                    <input type="text" name="policy_number" required
+                           class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                </div>
+                <div>
+                    <label class="block text-gray-700 font-semibold mb-2">Provider *</label>
+                    <input type="text" name="insurer" required placeholder="e.g., Vanguard, Halifax"
+                           class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                </div>
+                <div>
+                    <label class="block text-gray-700 font-semibold mb-2">Category *</label>
+                    <select name="category" id="category_add" required onchange="toggleBalanceField()" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <option value="">Select Category</option>
+                        <option value="ISA">ISA</option>
+                        <option value="Pension">Pension</option>
+                        <option value="Mortgage">Mortgage</option>
+                        <option value="Other">Other</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-gray-700 font-semibold mb-2">Balance *</label>
+                    <input type="number" step="0.01" name="remaining_balance" id="remaining_balance" required
+                           placeholder="Enter current balance"
+                           class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <p class="text-xs text-gray-500 mt-1">For assets (ISA, Pension): positive number. For liabilities (Mortgage): enter the owed amount.</p>
+                </div>
+                <div>
+                    <label class="block text-gray-700 font-semibold mb-2">Monthly Payment/Contribution</label>
+                    <input type="number" step="0.01" name="monthly_amount" id="monthly_amount"
+                           onchange="calculateAnnual()"
+                           placeholder="Optional"
+                           class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                </div>
+                <div>
+                    <label class="block text-gray-700 font-semibold mb-2">Start Date *</label>
+                    <input type="date" name="start_date" required
+                           class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                </div>
+                <div>
+                    <label class="block text-gray-700 font-semibold mb-2">End Date/Maturity *</label>
+                    <input type="date" name="end_date" required
+                           class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                </div>
+                <div>
+                    <label class="block text-gray-700 font-semibold mb-2">Annual Amount</label>
+                    <input type="number" step="0.01" name="annual_amount" id="annual_amount"
+                           onchange="calculateMonthly()"
+                           placeholder="Auto-calculated"
+                           class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                </div>
+                <div>
+                    <label class="block text-gray-700 font-semibold mb-2">Provider Website</label>
+                    <input type="url" name="insurer_website" placeholder="https://example.com"
+                           class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                </div>
+                <div class="md:col-span-2">
+                    <label class="block text-gray-700 font-semibold mb-2">Notes</label>
+                    <textarea name="notes" rows="3"
+                              placeholder="Additional notes about this account"
+                              class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"></textarea>
+                </div>
+            </div>
+            <div class="flex justify-end gap-3 mt-6">
+                <button type="button"
+                        onclick="document.getElementById('addModal').classList.add('hidden')"
+                        class="px-6 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 transition duration-200">
+                    Cancel
+                </button>
+                <button type="submit"
+                        class="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition duration-200">
+                    Add Account
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+function calculateAnnual() {
+    const monthly = document.getElementById('monthly_amount').value;
+    if (monthly) {
+        document.getElementById('annual_amount').value = (parseFloat(monthly) * 12).toFixed(2);
+    }
+}
+
+function calculateMonthly() {
+    const annual = document.getElementById('annual_amount').value;
+    if (annual) {
+        document.getElementById('monthly_amount').value = (parseFloat(annual) / 12).toFixed(2);
+    }
+}
+
+function toggleBalanceField() {
+    const category = document.getElementById('category_add').value;
+    const balanceInput = document.getElementById('remaining_balance');
+
+    if (category === 'Mortgage') {
+        balanceInput.placeholder = 'Enter amount owed on mortgage';
+    } else if (category === 'ISA' || category === 'Pension') {
+        balanceInput.placeholder = 'Enter current account balance';
+    } else {
+        balanceInput.placeholder = 'Enter current balance';
+    }
+}
+</script>
+{% endblock %}

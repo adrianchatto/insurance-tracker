@@ -219,7 +219,7 @@
                         {{ policy.annual_amount | format_currency }}
                     </td>
                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {% if policy.category == 'Mortgage' and policy.remaining_balance %}
+                        {% if policy.remaining_balance %}
                         {{ policy.remaining_balance | format_currency }}
                         {% else %}
                         -
@@ -299,7 +299,7 @@
                 </div>
                 <div>
                     <label class="block text-gray-700 font-semibold mb-2">Category *</label>
-                    <select name="category" id="category_add" required onchange="toggleRemainingBalance('add')" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <select name="category" id="category_add" required class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
                         <option value="">Select Category</option>
                         {% for category in categories %}
                         <option value="{{ category.name }}">{{ category.name }}</option>
@@ -328,10 +328,12 @@
                            onchange="calculateMonthly()"
                            class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
                 </div>
-                <div id="remaining_balance_add" style="display: none;">
-                    <label class="block text-gray-700 font-semibold mb-2">Remaining Balance</label>
+                <div id="remaining_balance_add">
+                    <label class="block text-gray-700 font-semibold mb-2">Balance / Remaining Balance</label>
                     <input type="number" step="0.01" name="remaining_balance"
+                           placeholder="For ISA/Pension: current balance. For Mortgage: amount owed."
                            class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <p class="text-xs text-gray-500 mt-1">Optional: Track account balances for ISAs, Pensions, or mortgage debt.</p>
                 </div>
                 <div>
                     <label class="block text-gray-700 font-semibold mb-2">Account Source</label>
@@ -379,18 +381,6 @@ function calculateMonthly() {
     }
 }
 
-function toggleRemainingBalance(context) {
-    const categorySelect = document.getElementById('category_' + context);
-    const remainingBalanceDiv = document.getElementById('remaining_balance_' + context);
-
-    if (categorySelect && remainingBalanceDiv) {
-        if (categorySelect.value === 'Mortgage') {
-            remainingBalanceDiv.style.display = 'block';
-        } else {
-            remainingBalanceDiv.style.display = 'none';
-        }
-    }
-}
 
 // Filter panel functions
 function toggleFilterPanel() {
