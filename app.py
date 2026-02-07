@@ -190,6 +190,12 @@ def format_currency(value):
     currency_symbol = get_setting('currency_symbol', '$')
     return f"{currency_symbol}{value:,.2f}"
 
+@app.template_filter('urlencode_dict')
+def urlencode_dict_filter(d):
+    """Convert dict to URL-encoded query string, handling lists"""
+    from urllib.parse import urlencode
+    return urlencode(d, doseq=True)
+
 def login_required(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
@@ -259,21 +265,61 @@ def calculate_days_until_expiry(end_date_str):
     except:
         return 0
 
+# Column mappings for sortable columns (SQL injection prevention)
+POLICIES_SORTABLE_COLUMNS = {
+    'name': 'name',
+    'provider': 'insurer',
+    'category': 'category',
+    'end_date': 'end_date',
+    'monthly': 'monthly_amount',
+    'annual': 'annual_amount',
+    'balance': 'remaining_balance'
+}
+
+EXPENSE_SORTABLE_COLUMNS = {
+    'name': 'name',
+    'category': 'category',
+    'amount': 'monthly_amount',
+    'frequency': 'frequency'
+}
+
+def get_valid_sort(column, allowed_columns, default='name'):
+    """Validate and return safe sort column"""
+    if column and column in allowed_columns:
+        return allowed_columns[column]
+    return allowed_columns[default]
+
+def get_valid_order(order, default='asc'):
+    """Validate and return safe sort order"""
+    if order and order.lower() in ['asc', 'desc']:
+        return order.lower()
+    return default
+
 @app.route('/policies')
 @login_required
 def policies():
     # Support multiple category filters
     category_filters = request.args.getlist('category')
 
+    # Extract and validate sort parameters
+    sort_param = request.args.get('sort', 'end_date')
+    order_param = request.args.get('order', 'asc')
+
+    sort_column = get_valid_sort(sort_param, POLICIES_SORTABLE_COLUMNS, 'end_date')
+    sort_order = get_valid_order(order_param, 'asc')
+
     conn = get_db()
     c = conn.cursor()
 
+    # Build query with dynamic ORDER BY
     if category_filters:
         # Create placeholders for SQL IN clause
         placeholders = ','.join('?' * len(category_filters))
-        c.execute(f"SELECT * FROM financial_items WHERE is_policy = 1 AND category IN ({placeholders}) ORDER BY end_date", category_filters)
+        query = f"SELECT * FROM financial_items WHERE is_policy = 1 AND category IN ({placeholders}) ORDER BY {sort_column} {sort_order.upper()}"
+        c.execute(query, category_filters)
     else:
-        c.execute("SELECT * FROM financial_items WHERE is_policy = 1 ORDER BY end_date")
+        query = f"SELECT * FROM financial_items WHERE is_policy = 1 ORDER BY {sort_column} {sort_order.upper()}"
+        c.execute(query)
 
     policies = c.fetchall()
 
@@ -291,7 +337,12 @@ def policies():
         policy_dict['category_color'] = categories_dict.get(policy['category'], '#3B82F6')
         policies_with_days.append(policy_dict)
 
-    return render_template('index.html', policies=policies_with_days, categories=categories, selected_categories=category_filters)
+    return render_template('index.html',
+                          policies=policies_with_days,
+                          categories=categories,
+                          selected_categories=category_filters,
+                          current_sort=sort_param,
+                          current_order=sort_order)
 
 @app.route('/calendar')
 @login_required
@@ -348,19 +399,30 @@ def budget():
     if per_page not in [10, 25, 50, 100]:
         per_page = 10
 
-    # Get all financial items (includes policies, expenses, and income)
-    c.execute("SELECT *, name as friendly_name, monthly_amount as amount FROM financial_items ORDER BY type, category, name")
-    items = c.fetchall()
+    # Extract and validate expense sort parameters
+    expense_sort = request.args.get('sort_expense', 'name')
+    expense_order = request.args.get('order_expense', 'asc')
+
+    sort_column = get_valid_sort(expense_sort, EXPENSE_SORTABLE_COLUMNS, 'name')
+    sort_order = get_valid_order(expense_order, 'asc')
+
+    # Get income items (no sorting needed typically)
+    c.execute("SELECT *, name as friendly_name, monthly_amount as amount FROM financial_items WHERE type='income' ORDER BY name")
+    income_items = [dict(item) for item in c.fetchall()]
+
+    # Get expense items with dynamic sorting
+    query = f"""SELECT *, name as friendly_name, monthly_amount as amount
+                FROM financial_items
+                WHERE type='expense'
+                ORDER BY {sort_column} {sort_order.upper()}"""
+    c.execute(query)
+    all_expense_items = [dict(item) for item in c.fetchall()]
 
     # Get categories for dropdown
     c.execute("SELECT name, color FROM categories ORDER BY name")
     categories = c.fetchall()
 
     conn.close()
-
-    # Separate income and expenses (expenses include policies)
-    income_items = [dict(item) for item in items if item['type'] == 'income']
-    all_expense_items = [dict(item) for item in items if item['type'] == 'expense']
 
     # Calculate totals (use all items, not paginated)
     total_income = sum(item['amount'] or 0 for item in income_items)
@@ -396,7 +458,9 @@ def budget():
                           expenses_page=expenses_page,
                           per_page=per_page,
                           expenses_total=expenses_total,
-                          expenses_total_pages=expenses_total_pages)
+                          expenses_total_pages=expenses_total_pages,
+                          expense_sort=expense_sort,
+                          expense_order=expense_order)
 
 @app.route('/budget/add', methods=['POST'])
 @login_required

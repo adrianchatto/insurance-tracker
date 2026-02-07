@@ -113,6 +113,21 @@
     {% endif %}
 </div>
 
+{% macro sort_link(column_key, column_label, current_sort, current_order) %}
+    {% set new_order = 'desc' if (column_key == current_sort and current_order == 'asc') else 'asc' %}
+    {% set url_args = request.args.to_dict(flat=False) %}
+    {% set _ = url_args.update({'sort_expense': [column_key], 'order_expense': [new_order]}) %}
+    <a href="{{ url_for(request.endpoint, **url_args|urlencode_dict) }}"
+       class="flex items-center justify-between w-full group hover:text-blue-600 transition duration-150">
+        <span>{{ column_label }}</span>
+        {% if current_sort == column_key %}
+            <i class="fas fa-sort-{{ 'up' if current_order == 'asc' else 'down' }} ml-2 text-blue-600"></i>
+        {% else %}
+            <i class="fas fa-sort ml-2 text-gray-300 group-hover:text-gray-400"></i>
+        {% endif %}
+    </a>
+{% endmacro %}
+
 <!-- Expenses Section -->
 <div id="expenses" class="bg-white rounded-lg shadow-lg p-6">
     <div class="flex justify-between items-center mb-4">
@@ -141,12 +156,20 @@
         <table class="min-w-full divide-y divide-gray-200">
             <thead class="bg-gray-50">
                 <tr>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Category</th>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        {{ sort_link('name', 'Name', expense_sort, expense_order) }}
+                    </th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        {{ sort_link('category', 'Category', expense_sort, expense_order) }}
+                    </th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        {{ sort_link('amount', 'Amount', expense_sort, expense_order) }}
+                    </th>
                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
                     <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Policy</th>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Frequency</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        {{ sort_link('frequency', 'Frequency', expense_sort, expense_order) }}
+                    </th>
                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Notes</th>
                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                 </tr>
@@ -200,7 +223,9 @@
         </div>
         <div class="flex gap-1">
             {% if expenses_page > 1 %}
-            <a href="?expenses_page={{ expenses_page - 1 }}&per_page={{ per_page }}#expenses"
+            {% set prev_args = request.args.to_dict(flat=False) %}
+            {% set _ = prev_args.update({'expenses_page': [expenses_page - 1]}) %}
+            <a href="{{ url_for(request.endpoint, **prev_args|urlencode_dict) }}#expenses"
                class="px-3 py-1 border border-gray-300 rounded-lg text-sm hover:bg-gray-100 transition duration-200">
                 Previous
             </a>
@@ -210,7 +235,9 @@
                 {% if page == expenses_page %}
                 <span class="px-3 py-1 bg-blue-600 text-white rounded-lg text-sm">{{ page }}</span>
                 {% elif page == 1 or page == expenses_total_pages or (page >= expenses_page - 2 and page <= expenses_page + 2) %}
-                <a href="?expenses_page={{ page }}&per_page={{ per_page }}#expenses"
+                {% set page_args = request.args.to_dict(flat=False) %}
+                {% set _ = page_args.update({'expenses_page': [page]}) %}
+                <a href="{{ url_for(request.endpoint, **page_args|urlencode_dict) }}#expenses"
                    class="px-3 py-1 border border-gray-300 rounded-lg text-sm hover:bg-gray-100 transition duration-200">
                     {{ page }}
                 </a>
@@ -220,7 +247,9 @@
             {% endfor %}
 
             {% if expenses_page < expenses_total_pages %}
-            <a href="?expenses_page={{ expenses_page + 1 }}&per_page={{ per_page }}#expenses"
+            {% set next_args = request.args.to_dict(flat=False) %}
+            {% set _ = next_args.update({'expenses_page': [expenses_page + 1]}) %}
+            <a href="{{ url_for(request.endpoint, **next_args|urlencode_dict) }}#expenses"
                class="px-3 py-1 border border-gray-300 rounded-lg text-sm hover:bg-gray-100 transition duration-200">
                 Next
             </a>
