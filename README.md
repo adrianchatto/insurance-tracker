@@ -1,6 +1,6 @@
 # Policy Tracker
 
-A comprehensive Flask-based application for tracking insurance policies, mortgages, utilities, subscriptions, warranties, and any recurring contracts with integrated budget management.
+A comprehensive Flask-based application for tracking insurance policies, mortgages, utilities, subscriptions, warranties, and any recurring contracts with integrated budget management and net worth tracking.
 
 ## Features
 
@@ -16,7 +16,15 @@ A comprehensive Flask-based application for tracking insurance policies, mortgag
 - **Friendly Names**: Human-readable labels for easy identification
 - **Financial Tracking**: Automatic monthly/annual amount calculations
 - **Expiry Tracking**: Visual indicators for expired and expiring policies
-- **Remaining Balance**: Track mortgage or loan balances
+- **Balance Tracking**: Track balances for all account types (ISAs, Pensions, Mortgages, etc.)
+
+### Net Worth Tracking (New in v2.1.0)
+- **Asset Management**: Track ISAs, Pensions, and other investment accounts
+- **Liability Management**: Monitor mortgage debt and loans
+- **Net Worth Calculator**: Automatic calculation of total assets minus liabilities
+- **Separate Views**: Clear separation of assets and liabilities with color-coded tables
+- **Summary Dashboard**: Quick overview cards showing total assets, liabilities, and net worth
+- **Flexible Date Fields**: Optional start/end dates for accounts (auto-populated if left blank)
 
 ### Advanced Organization
 - **Table Sorting**: Sort by any column (name, amount, date, provider, category, frequency)
@@ -39,6 +47,7 @@ A comprehensive Flask-based application for tracking insurance policies, mortgag
 
 - **Budget** (Default Landing Page): Comprehensive financial overview with charts and summaries
 - **Policies**: Dedicated policy management with filtering and sorting
+- **Net Worth**: Track assets (ISAs, Pensions) and liabilities (Mortgages) with automatic net worth calculation
 - **Calendar**: Visual timeline view of policy coverage periods
 - **Categories**: Manage and color-code your categories
 - **Admin Panel**: User management, settings, and backup tools

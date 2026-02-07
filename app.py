@@ -13,7 +13,7 @@ app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', 'your-secret-key-here')
 
 # Application version
-VERSION = "2.0.0"
+VERSION = "2.1.0"
 
 # Database configuration
 DB_PATH = os.environ.get('DB_PATH', '/data/policies.db')
