@@ -117,7 +117,7 @@
     {% set new_order = 'desc' if (column_key == current_sort and current_order == 'asc') else 'asc' %}
     {% set url_args = request.args.to_dict(flat=False) %}
     {% set _ = url_args.update({'sort_expense': [column_key], 'order_expense': [new_order]}) %}
-    <a href="{{ url_for(request.endpoint, **url_args|urlencode_dict) }}"
+    <a href="{{ url_for(request.endpoint, **url_args) }}"
        class="flex items-center justify-between w-full group hover:text-blue-600 transition duration-150">
         <span>{{ column_label }}</span>
         {% if current_sort == column_key %}
@@ -337,7 +337,7 @@
             {% if expenses_page > 1 %}
             {% set prev_args = request.args.to_dict(flat=False) %}
             {% set _ = prev_args.update({'expenses_page': [expenses_page - 1]}) %}
-            <a href="{{ url_for(request.endpoint, **prev_args|urlencode_dict) }}#expenses"
+            <a href="{{ url_for(request.endpoint, **prev_args) }}#expenses"
                class="px-3 py-1 border border-gray-300 rounded-lg text-sm hover:bg-gray-100 transition duration-200">
                 Previous
             </a>
@@ -349,7 +349,7 @@
                 {% elif page == 1 or page == expenses_total_pages or (page >= expenses_page - 2 and page <= expenses_page + 2) %}
                 {% set page_args = request.args.to_dict(flat=False) %}
                 {% set _ = page_args.update({'expenses_page': [page]}) %}
-                <a href="{{ url_for(request.endpoint, **page_args|urlencode_dict) }}#expenses"
+                <a href="{{ url_for(request.endpoint, **page_args) }}#expenses"
                    class="px-3 py-1 border border-gray-300 rounded-lg text-sm hover:bg-gray-100 transition duration-200">
                     {{ page }}
                 </a>
@@ -361,7 +361,7 @@
             {% if expenses_page < expenses_total_pages %}
             {% set next_args = request.args.to_dict(flat=False) %}
             {% set _ = next_args.update({'expenses_page': [expenses_page + 1]}) %}
-            <a href="{{ url_for(request.endpoint, **next_args|urlencode_dict) }}#expenses"
+            <a href="{{ url_for(request.endpoint, **next_args) }}#expenses"
                class="px-3 py-1 border border-gray-300 rounded-lg text-sm hover:bg-gray-100 transition duration-200">
                 Next
             </a>

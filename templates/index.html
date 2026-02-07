@@ -148,7 +148,7 @@
         {% set new_order = 'desc' if (column_key == current_sort and current_order == 'asc') else 'asc' %}
         {% set url_args = request.args.to_dict(flat=False) %}
         {% set _ = url_args.update({'sort': [column_key], 'order': [new_order]}) %}
-        <a href="{{ url_for(request.endpoint, **url_args|urlencode_dict) }}"
+        <a href="{{ url_for(request.endpoint, **url_args) }}"
            class="flex items-center justify-between w-full group hover:text-blue-600 transition duration-150">
             <span>{{ column_label }}</span>
             {% if current_sort == column_key %}
