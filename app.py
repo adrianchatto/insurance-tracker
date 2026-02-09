@@ -496,11 +496,22 @@ def networth():
     # Calculate net worth
     net_worth = total_assets - total_liabilities
 
+    # Group assets by category for pie chart
+    assets_by_category = {}
+    for account in accounts_enhanced:
+        if not account.get('is_liability'):
+            cat = account['category'] or 'Other'
+            balance = account.get('remaining_balance', 0) or 0
+            if cat not in assets_by_category:
+                assets_by_category[cat] = 0
+            assets_by_category[cat] += balance
+
     return render_template('networth.html',
                           accounts=accounts_enhanced,
                           total_assets=total_assets,
                           total_liabilities=total_liabilities,
-                          net_worth=net_worth)
+                          net_worth=net_worth,
+                          assets_by_category=assets_by_category)
 
 @app.route('/')
 @app.route('/budget')
@@ -1274,4 +1285,5 @@ def restore_backup():
     return redirect(url_for('backup'))
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000, debug=True)
+    port = int(os.environ.get('PORT', 5000))
+    app.run(host='0.0.0.0', port=port, debug=True)

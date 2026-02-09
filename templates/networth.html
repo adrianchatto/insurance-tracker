@@ -33,6 +33,18 @@
 
     {% if accounts %}
     <!-- Assets Section -->
+    {% if assets %}
+    <!-- Assets Breakdown Chart -->
+    <div class="mb-8">
+        <h2 class="text-2xl font-bold text-gray-800 mb-4 flex items-center">
+            <i class="fas fa-chart-pie text-blue-600 mr-2"></i>Assets Breakdown
+        </h2>
+        <div class="bg-white border border-gray-200 rounded-lg p-6 max-w-md mx-auto">
+            <canvas id="assetsChart"></canvas>
+        </div>
+    </div>
+
+    <!-- Assets Section -->
     {% set assets = accounts | selectattr('is_liability', 'equalto', False) | list %}
     {% if assets %}
     <div class="mb-8">
@@ -262,52 +274,103 @@
     </div>
 </div>
 
-<script>
-function calculateAnnual() {
-    const monthly = document.getElementById('monthly_amount').value;
-    if (monthly) {
-        document.getElementById('annual_amount').value = (parseFloat(monthly) * 12).toFixed(2);
-    }
-}
-
-function calculateMonthly() {
-    const annual = document.getElementById('annual_amount').value;
-    if (annual) {
-        document.getElementById('monthly_amount').value = (parseFloat(annual) / 12).toFixed(2);
-    }
-}
-
-function toggleBalanceField() {
-    const category = document.getElementById('category_add').value;
-    const balanceInput = document.getElementById('remaining_balance');
-
-    if (category === 'Mortgage') {
-        balanceInput.placeholder = 'Enter amount owed on mortgage';
-    } else if (category === 'ISA' || category === 'Pension') {
-        balanceInput.placeholder = 'Enter current account balance';
-    } else {
-        balanceInput.placeholder = 'Enter current balance';
-    }
-}
-
-function setDefaultDates() {
-    const startDateInput = document.getElementById('start_date');
-    const endDateInput = document.getElementById('end_date');
-
-    // If start date is empty, set to today
-    if (!startDateInput.value) {
-        const today = new Date().toISOString().split('T')[0];
-        startDateInput.value = today;
+    <script>
+    function calculateAnnual() {
+        const monthly = document.getElementById('monthly_amount').value;
+        if (monthly) {
+            document.getElementById('annual_amount').value = (parseFloat(monthly) * 12).toFixed(2);
+        }
     }
 
-    // If end date is empty, set to 50 years from now (for ISAs/Pensions)
-    if (!endDateInput.value) {
-        const futureDate = new Date();
-        futureDate.setFullYear(futureDate.getFullYear() + 50);
-        endDateInput.value = futureDate.toISOString().split('T')[0];
+    function calculateMonthly() {
+        const annual = document.getElementById('annual_amount').value;
+        if (annual) {
+            document.getElementById('monthly_amount').value = (parseFloat(annual) / 12).toFixed(2);
+        }
     }
 
-    return true;
-}
-</script>
+    function toggleBalanceField() {
+        const category = document.getElementById('category_add').value;
+        const balanceInput = document.getElementById('remaining_balance');
+
+        if (category === 'Mortgage') {
+            balanceInput.placeholder = 'Enter amount owed on mortgage';
+        } else if (category === 'ISA' || category === 'Pension') {
+            balanceInput.placeholder = 'Enter current account balance';
+        } else {
+            balanceInput.placeholder = 'Enter current balance';
+        }
+    }
+
+    function setDefaultDates() {
+        const startDateInput = document.getElementById('start_date');
+        const endDateInput = document.getElementById('end_date');
+
+        // If start date is empty, set to today
+        if (!startDateInput.value) {
+            const today = new Date().toISOString().split('T')[0];
+            startDateInput.value = today;
+        }
+
+        // If end date is empty, set to 50 years from now (for ISAs/Pensions)
+        if (!endDateInput.value) {
+            const futureDate = new Date();
+            futureDate.setFullYear(futureDate.getFullYear() + 50);
+            endDateInput.value = futureDate.toISOString().split('T')[0];
+        }
+
+        return true;
+    }
+    </script>
+
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <script>
+    // Asset Pie Chart
+    const assetsByCategory = {{ assets_by_category | tojson }};
+    const categoryLabels = Object.keys(assetsByCategory);
+    const categoryData = Object.values(assetsByCategory);
+
+    if (categoryLabels.length > 0) {
+        const ctx = document.getElementById('assetsChart').getContext('2d');
+        new Chart(ctx, {
+            type: 'pie',
+            data: {
+                labels: categoryLabels,
+                datasets: [{
+                    data: categoryData,
+                    backgroundColor: [
+                        '#10B981', '#3B82F6', '#F59E0B', '#8B5CF6', '#EC4899', '#6B7280',
+                        '#EF4444', '#14B8A6', '#F97316', '#06B6D4'
+                    ],
+                    borderWidth: 2,
+                    borderColor: '#fff'
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: true,
+                plugins: {
+                    legend: {
+                        position: 'bottom'
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                const label = context.label || '';
+                                const value = context.parsed || 0;
+                                const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                const percentage = ((value / total) * 100).toFixed(1);
+                                return label + ': ' + new Intl.NumberFormat('en-GB', {
+                                    style: 'currency',
+                                    currency: 'GBP'
+                                }).format(value) + ' (' + percentage + '%)';
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    }
+    </script>
 {% endblock %}
