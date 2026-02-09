@@ -39,6 +39,9 @@
     <!-- Assets Section -->
     <!-- Assets Section -->
     <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+        {% set assets = accounts | selectattr('is_liability', 'equalto', False) | list %}
+        {% set liabilities = accounts | selectattr('is_liability', 'equalto', True) | list %}
+
         {% if assets %}
         <!-- Assets Breakdown Chart -->
         <div>
@@ -51,7 +54,7 @@
         </div>
         {% endif %}
 
-        {% set liabilities = accounts | selectattr('is_liability', 'equalto', True) | list %}
+
         {% if liabilities %}
         <!-- Liabilities Breakdown Chart -->
         <div>
@@ -369,7 +372,7 @@
     const categoryLabels = Object.keys(assetsByCategory);
     const categoryData = Object.values(assetsByCategory);
 
-    if (categoryLabels.length > 0) {
+    if (categoryLabels.length > 0 && document.getElementById('assetsChart')) {
         const ctx = document.getElementById('assetsChart').getContext('2d');
         new Chart(ctx, {
             type: 'pie',
@@ -416,7 +419,7 @@
     const providerLabels = Object.keys(liabilitiesByProvider);
     const providerData = Object.values(liabilitiesByProvider);
 
-    if (providerLabels.length > 0) {
+    if (providerLabels.length > 0 && document.getElementById('liabilitiesChart')) {
         const ctx = document.getElementById('liabilitiesChart').getContext('2d');
         new Chart(ctx, {
             type: 'pie',
