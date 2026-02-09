@@ -38,19 +38,32 @@
     {% if accounts %}
     <!-- Assets Section -->
     <!-- Assets Section -->
-    {% set assets = accounts | selectattr('is_liability', 'equalto', False) | list %}
-
-    {% if assets %}
-    <!-- Assets Breakdown Chart -->
-    <div class="mb-8">
-        <h2 class="text-2xl font-bold text-gray-800 mb-4 flex items-center">
-            <i class="fas fa-chart-pie text-blue-600 mr-2"></i>Assets Breakdown
-        </h2>
-        <div class="bg-white border border-gray-200 rounded-lg p-6 max-w-md mx-auto">
-            <canvas id="assetsChart"></canvas>
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+        {% if assets %}
+        <!-- Assets Breakdown Chart -->
+        <div>
+            <h2 class="text-2xl font-bold text-gray-800 mb-4 flex items-center">
+                <i class="fas fa-chart-pie text-blue-600 mr-2"></i>Assets Breakdown
+            </h2>
+            <div class="bg-white border border-gray-200 rounded-lg p-6">
+                <canvas id="assetsChart"></canvas>
+            </div>
         </div>
+        {% endif %}
+
+        {% set liabilities = accounts | selectattr('is_liability', 'equalto', True) | list %}
+        {% if liabilities %}
+        <!-- Liabilities Breakdown Chart -->
+        <div>
+            <h2 class="text-2xl font-bold text-gray-800 mb-4 flex items-center">
+                <i class="fas fa-chart-pie text-red-600 mr-2"></i>Liabilities Breakdown
+            </h2>
+            <div class="bg-white border border-gray-200 rounded-lg p-6">
+                <canvas id="liabilitiesChart"></canvas>
+            </div>
+        </div>
+        {% endif %}
     </div>
-    {% endif %}
 
     {% if assets %}
     <div class="mb-8">
@@ -367,6 +380,53 @@
                     backgroundColor: [
                         '#10B981', '#3B82F6', '#F59E0B', '#8B5CF6', '#EC4899', '#6B7280',
                         '#EF4444', '#14B8A6', '#F97316', '#06B6D4'
+                    ],
+                    borderWidth: 2,
+                    borderColor: '#fff'
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: true,
+                plugins: {
+                    legend: {
+                        position: 'bottom'
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function (context) {
+                                const label = context.label || '';
+                                const value = context.parsed || 0;
+                                const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                const percentage = ((value / total) * 100).toFixed(1);
+                                return label + ': ' + new Intl.NumberFormat('en-GB', {
+                                    style: 'currency',
+                                    currency: 'GBP'
+                                }).format(value) + ' (' + percentage + '%)';
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    }
+
+    // Liabilities Pie Chart
+    const liabilitiesByProvider = {{ liabilities_by_provider | tojson }};
+    const providerLabels = Object.keys(liabilitiesByProvider);
+    const providerData = Object.values(liabilitiesByProvider);
+
+    if (providerLabels.length > 0) {
+        const ctx = document.getElementById('liabilitiesChart').getContext('2d');
+        new Chart(ctx, {
+            type: 'pie',
+            data: {
+                labels: providerLabels,
+                datasets: [{
+                    data: providerData,
+                    backgroundColor: [
+                        '#EF4444', '#F59E0B', '#8B5CF6', '#EC4899', '#6B7280', '#3B82F6',
+                        '#10B981', '#14B8A6', '#06B6D4', '#6366F1'
                     ],
                     borderWidth: 2,
                     borderColor: '#fff'

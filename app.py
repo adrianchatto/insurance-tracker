@@ -506,12 +506,23 @@ def networth():
                 assets_by_category[cat] = 0
             assets_by_category[cat] += balance
 
+    # Group liabilities by provider for pie chart
+    liabilities_by_provider = {}
+    for account in accounts_enhanced:
+        if account.get('is_liability'):
+            provider = account.get('insurer') or 'Unknown'
+            balance = abs(account.get('remaining_balance', 0) or 0)
+            if provider not in liabilities_by_provider:
+                liabilities_by_provider[provider] = 0
+            liabilities_by_provider[provider] += balance
+
     return render_template('networth.html',
                           accounts=accounts_enhanced,
                           total_assets=total_assets,
                           total_liabilities=total_liabilities,
                           net_worth=net_worth,
-                          assets_by_category=assets_by_category)
+                          assets_by_category=assets_by_category,
+                          liabilities_by_provider=liabilities_by_provider)
 
 @app.route('/')
 @app.route('/budget')
