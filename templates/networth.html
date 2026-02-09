@@ -5,7 +5,7 @@
     <div class="flex justify-between items-center mb-6">
         <h1 class="text-3xl font-bold text-gray-800">Net Worth</h1>
         <button onclick="document.getElementById('addModal').classList.remove('hidden')"
-                class="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition duration-200">
+            class="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition duration-200">
             <i class="fas fa-plus mr-2"></i>Add Account
         </button>
     </div>
@@ -22,17 +22,24 @@
             <div class="text-3xl font-bold text-red-700">{{ total_liabilities | format_currency }}</div>
             <div class="text-xs text-red-600 mt-1">Mortgages, Loans, Debts</div>
         </div>
-        <div class="{% if net_worth >= 0 %}bg-blue-50 border border-blue-200{% else %}bg-orange-50 border border-orange-200{% endif %} rounded-lg p-6">
-            <div class="text-sm {% if net_worth >= 0 %}text-blue-600{% else %}text-orange-600{% endif %} font-semibold mb-2">Net Worth</div>
+        <div
+            class="{% if net_worth >= 0 %}bg-blue-50 border border-blue-200{% else %}bg-orange-50 border border-orange-200{% endif %} rounded-lg p-6">
+            <div
+                class="text-sm {% if net_worth >= 0 %}text-blue-600{% else %}text-orange-600{% endif %} font-semibold mb-2">
+                Net Worth</div>
             <div class="text-3xl font-bold {% if net_worth >= 0 %}text-blue-700{% else %}text-orange-700{% endif %}">
                 {{ net_worth | format_currency }}
             </div>
-            <div class="text-xs {% if net_worth >= 0 %}text-blue-600{% else %}text-orange-600{% endif %} mt-1">Assets - Liabilities</div>
+            <div class="text-xs {% if net_worth >= 0 %}text-blue-600{% else %}text-orange-600{% endif %} mt-1">Assets -
+                Liabilities</div>
         </div>
     </div>
 
     {% if accounts %}
     <!-- Assets Section -->
+    <!-- Assets Section -->
+    {% set assets = accounts | selectattr('is_liability', 'equalto', False) | list %}
+
     {% if assets %}
     <!-- Assets Breakdown Chart -->
     <div class="mb-8">
@@ -43,9 +50,8 @@
             <canvas id="assetsChart"></canvas>
         </div>
     </div>
+    {% endif %}
 
-    <!-- Assets Section -->
-    {% set assets = accounts | selectattr('is_liability', 'equalto', False) | list %}
     {% if assets %}
     <div class="mb-8">
         <h2 class="text-2xl font-bold text-gray-800 mb-4 flex items-center">
@@ -55,12 +61,18 @@
             <table class="min-w-full divide-y divide-gray-200">
                 <thead class="bg-gray-50">
                     <tr>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Account Name</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Category</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Provider</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Account Number</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Balance</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Account Name</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Category</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Provider</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Account Number</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Balance</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Actions</th>
                     </tr>
                 </thead>
                 <tbody class="bg-white divide-y divide-gray-200">
@@ -70,7 +82,8 @@
                             <div class="text-sm font-medium text-gray-900">{{ account.name }}</div>
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap">
-                            <span class="px-2 py-1 rounded-full text-xs font-semibold text-white" style="background-color: {{ account.category_color }}">{{ account.category }}</span>
+                            <span class="px-2 py-1 rounded-full text-xs font-semibold text-white"
+                                style="background-color: {{ account.category_color }}">{{ account.category }}</span>
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ account.insurer or '-' }}</td>
                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ account.policy_number }}</td>
@@ -80,11 +93,13 @@
                         <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
                             <div class="flex items-center space-x-3">
                                 {% if account.insurer_website %}
-                                <a href="{{ account.insurer_website }}" target="_blank" class="text-blue-600 hover:text-blue-900" title="Visit website">
+                                <a href="{{ account.insurer_website }}" target="_blank"
+                                    class="text-blue-600 hover:text-blue-900" title="Visit website">
                                     <i class="fas fa-external-link-alt"></i>
                                 </a>
                                 {% endif %}
-                                <a href="{{ url_for('edit_policy', id=account.id) }}" class="text-indigo-600 hover:text-indigo-900" title="Edit">
+                                <a href="{{ url_for('edit_policy', id=account.id) }}"
+                                    class="text-indigo-600 hover:text-indigo-900" title="Edit">
                                     <i class="fas fa-edit"></i>
                                 </a>
                             </div>
@@ -117,12 +132,18 @@
             <table class="min-w-full divide-y divide-gray-200">
                 <thead class="bg-gray-50">
                     <tr>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Account Name</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Category</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Provider</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Account Number</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Balance Owed</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Account Name</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Category</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Provider</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Account Number</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Balance Owed</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Actions</th>
                     </tr>
                 </thead>
                 <tbody class="bg-white divide-y divide-gray-200">
@@ -132,7 +153,8 @@
                             <div class="text-sm font-medium text-gray-900">{{ account.name }}</div>
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap">
-                            <span class="px-2 py-1 rounded-full text-xs font-semibold text-white" style="background-color: {{ account.category_color }}">{{ account.category }}</span>
+                            <span class="px-2 py-1 rounded-full text-xs font-semibold text-white"
+                                style="background-color: {{ account.category_color }}">{{ account.category }}</span>
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ account.insurer or '-' }}</td>
                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ account.policy_number }}</td>
@@ -142,11 +164,13 @@
                         <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
                             <div class="flex items-center space-x-3">
                                 {% if account.insurer_website %}
-                                <a href="{{ account.insurer_website }}" target="_blank" class="text-blue-600 hover:text-blue-900" title="Visit website">
+                                <a href="{{ account.insurer_website }}" target="_blank"
+                                    class="text-blue-600 hover:text-blue-900" title="Visit website">
                                     <i class="fas fa-external-link-alt"></i>
                                 </a>
                                 {% endif %}
-                                <a href="{{ url_for('edit_policy', id=account.id) }}" class="text-indigo-600 hover:text-indigo-900" title="Edit">
+                                <a href="{{ url_for('edit_policy', id=account.id) }}"
+                                    class="text-indigo-600 hover:text-indigo-900" title="Edit">
                                     <i class="fas fa-edit"></i>
                                 </a>
                             </div>
@@ -171,7 +195,8 @@
     {% else %}
     <div class="text-center py-12">
         <i class="fas fa-chart-line text-gray-300 text-6xl mb-4"></i>
-        <p class="text-gray-500 text-lg mb-4">No accounts found. Add your first account to start tracking your net worth!</p>
+        <p class="text-gray-500 text-lg mb-4">No accounts found. Add your first account to start tracking your net
+            worth!</p>
         <p class="text-gray-400 text-sm">Track ISAs, Pensions, Mortgages, and other financial accounts.</p>
     </div>
     {% endif %}
@@ -179,11 +204,12 @@
 
 <!-- Add Account Modal -->
 <div id="addModal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
-    <div class="relative top-10 mx-auto p-5 border w-11/12 md:w-2/3 lg:w-3/4 shadow-lg rounded-lg bg-white max-h-[90vh] overflow-y-auto">
+    <div
+        class="relative top-10 mx-auto p-5 border w-11/12 md:w-2/3 lg:w-3/4 shadow-lg rounded-lg bg-white max-h-[90vh] overflow-y-auto">
         <div class="flex justify-between items-center mb-4">
             <h3 class="text-2xl font-bold text-gray-900">Add New Account</h3>
             <button onclick="document.getElementById('addModal').classList.add('hidden')"
-                    class="text-gray-400 hover:text-gray-600">
+                class="text-gray-400 hover:text-gray-600">
                 <i class="fas fa-times text-2xl"></i>
             </button>
         </div>
@@ -192,21 +218,22 @@
                 <div>
                     <label class="block text-gray-700 font-semibold mb-2">Account Name *</label>
                     <input type="text" name="friendly_name" required placeholder="e.g., Vanguard ISA, Halifax Mortgage"
-                           class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
                 </div>
                 <div>
                     <label class="block text-gray-700 font-semibold mb-2">Account Number *</label>
                     <input type="text" name="policy_number" required
-                           class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
                 </div>
                 <div>
                     <label class="block text-gray-700 font-semibold mb-2">Provider *</label>
                     <input type="text" name="insurer" required placeholder="e.g., Vanguard, Halifax"
-                           class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
                 </div>
                 <div>
                     <label class="block text-gray-700 font-semibold mb-2">Category *</label>
-                    <select name="category" id="category_add" required onchange="toggleBalanceField()" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <select name="category" id="category_add" required onchange="toggleBalanceField()"
+                        class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
                         <option value="">Select Category</option>
                         <option value="ISA">ISA</option>
                         <option value="Pension">Pension</option>
@@ -217,56 +244,54 @@
                 <div>
                     <label class="block text-gray-700 font-semibold mb-2">Balance *</label>
                     <input type="number" step="0.01" name="remaining_balance" id="remaining_balance" required
-                           placeholder="Enter current balance"
-                           class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
-                    <p class="text-xs text-gray-500 mt-1">For assets (ISA, Pension): positive number. For liabilities (Mortgage): enter the owed amount.</p>
+                        placeholder="Enter current balance"
+                        class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <p class="text-xs text-gray-500 mt-1">For assets (ISA, Pension): positive number. For liabilities
+                        (Mortgage): enter the owed amount.</p>
                 </div>
                 <div>
                     <label class="block text-gray-700 font-semibold mb-2">Monthly Payment/Contribution</label>
                     <input type="number" step="0.01" name="monthly_amount" id="monthly_amount"
-                           onchange="calculateAnnual()"
-                           placeholder="Optional"
-                           class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        onchange="calculateAnnual()" placeholder="Optional"
+                        class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
                 </div>
                 <div>
                     <label class="block text-gray-700 font-semibold mb-2">Start Date</label>
                     <input type="date" name="start_date" id="start_date"
-                           class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
                     <p class="text-xs text-gray-500 mt-1">Optional: Leave blank to use today's date</p>
                 </div>
                 <div>
                     <label class="block text-gray-700 font-semibold mb-2">End Date/Maturity</label>
                     <input type="date" name="end_date" id="end_date"
-                           class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
-                    <p class="text-xs text-gray-500 mt-1">Optional: For mortgages, enter payoff date. For ISAs/Pensions, leave blank.</p>
+                        class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <p class="text-xs text-gray-500 mt-1">Optional: For mortgages, enter payoff date. For ISAs/Pensions,
+                        leave blank.</p>
                 </div>
                 <div>
                     <label class="block text-gray-700 font-semibold mb-2">Annual Amount</label>
                     <input type="number" step="0.01" name="annual_amount" id="annual_amount"
-                           onchange="calculateMonthly()"
-                           placeholder="Auto-calculated"
-                           class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        onchange="calculateMonthly()" placeholder="Auto-calculated"
+                        class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
                 </div>
                 <div>
                     <label class="block text-gray-700 font-semibold mb-2">Provider Website</label>
                     <input type="url" name="insurer_website" placeholder="https://example.com"
-                           class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
                 </div>
                 <div class="md:col-span-2">
                     <label class="block text-gray-700 font-semibold mb-2">Notes</label>
-                    <textarea name="notes" rows="3"
-                              placeholder="Additional notes about this account"
-                              class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"></textarea>
+                    <textarea name="notes" rows="3" placeholder="Additional notes about this account"
+                        class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"></textarea>
                 </div>
             </div>
             <div class="flex justify-end gap-3 mt-6">
-                <button type="button"
-                        onclick="document.getElementById('addModal').classList.add('hidden')"
-                        class="px-6 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 transition duration-200">
+                <button type="button" onclick="document.getElementById('addModal').classList.add('hidden')"
+                    class="px-6 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 transition duration-200">
                     Cancel
                 </button>
                 <button type="submit"
-                        class="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition duration-200">
+                    class="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition duration-200">
                     Add Account
                 </button>
             </div>
@@ -274,7 +299,7 @@
     </div>
 </div>
 
-    <script>
+<script>
     function calculateAnnual() {
         const monthly = document.getElementById('monthly_amount').value;
         if (monthly) {
@@ -321,11 +346,11 @@
 
         return true;
     }
-    </script>
+</script>
 
-    <!-- Chart.js -->
-    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
-    <script>
+<!-- Chart.js -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script>
     // Asset Pie Chart
     const assetsByCategory = {{ assets_by_category | tojson }};
     const categoryLabels = Object.keys(assetsByCategory);
@@ -356,7 +381,7 @@
                     },
                     tooltip: {
                         callbacks: {
-                            label: function(context) {
+                            label: function (context) {
                                 const label = context.label || '';
                                 const value = context.parsed || 0;
                                 const total = context.dataset.data.reduce((a, b) => a + b, 0);
@@ -372,5 +397,5 @@
             }
         });
     }
-    </script>
+</script>
 {% endblock %}
