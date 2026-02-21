@@ -193,7 +193,7 @@
                 {% for policy in policies %}
                 <tr class="{% if policy.days_until_expiry < 30 %}bg-red-50{% elif policy.days_until_expiry < 60 %}bg-yellow-50{% endif %}">
                     <td class="px-6 py-4 whitespace-nowrap">
-                        <div class="text-sm font-medium text-gray-900">{{ policy.friendly_name }}</div>
+                        <div class="text-sm font-medium text-gray-900">{{ policy.name }}</div>
                         <div class="text-xs text-gray-500">{{ policy.policy_number }}</div>
                     </td>
                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ policy.insurer }}</td>
