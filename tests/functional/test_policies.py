@@ -6,6 +6,24 @@ import pytest
 from app import get_db
 
 
+def _insert_policies(n, start=1):
+    """Helper: bulk-insert n policies into the DB."""
+    conn = get_db()
+    c = conn.cursor()
+    for i in range(start, start + n):
+        c.execute(
+            """INSERT INTO financial_items
+               (type, name, policy_number, insurer, category, start_date, end_date,
+                monthly_amount, annual_amount, frequency, is_fixed_cost, is_policy)
+               VALUES (?,?,?,?,?,?,?,?,?,?,?,?)""",
+            ("expense", f"Policy {i:03d}", f"P-{i:03d}", "TestCo",
+             "Insurance", "2024-01-01", "2025-12-31",
+             10.0, 120.0, "monthly", 1, 1),
+        )
+    conn.commit()
+    conn.close()
+
+
 class TestPoliciesListPage:
 
     def test_policies_page_loads(self, auth_client):
@@ -247,3 +265,61 @@ class TestDeletePolicy:
     def test_delete_nonexistent_policy_does_not_crash(self, auth_client):
         resp = auth_client.get("/delete/99999")
         assert resp.status_code in (200, 302)
+
+
+class TestPoliciesPagination:
+
+    def test_default_per_page_is_10(self, auth_client):
+        _insert_policies(15)
+        resp = auth_client.get("/policies")
+        assert resp.status_code == 200
+        # Only 10 of 15 policies should appear on page 1
+        assert b"Policy 001" in resp.data
+        assert b"Policy 011" not in resp.data
+
+    def test_page_2_shows_remaining_items(self, auth_client):
+        _insert_policies(15)
+        resp = auth_client.get("/policies?page=2")
+        assert resp.status_code == 200
+        assert b"Policy 011" in resp.data
+
+    def test_per_page_25_shows_all_when_under_25(self, auth_client):
+        _insert_policies(15)
+        resp = auth_client.get("/policies?per_page=25")
+        assert resp.status_code == 200
+        assert b"Policy 001" in resp.data
+        assert b"Policy 015" in resp.data
+
+    def test_invalid_per_page_defaults_to_10(self, auth_client):
+        _insert_policies(15)
+        resp = auth_client.get("/policies?per_page=999")
+        assert resp.status_code == 200
+        # Defaults to 10 — page 1 has items 1-10 only
+        assert b"Policy 001" in resp.data
+        assert b"Policy 011" not in resp.data
+
+    def test_pagination_controls_appear_when_multiple_pages(self, auth_client):
+        _insert_policies(15)
+        resp = auth_client.get("/policies")
+        assert b"Next" in resp.data
+
+    def test_no_pagination_controls_when_single_page(self, auth_client):
+        _insert_policies(5)
+        resp = auth_client.get("/policies")
+        assert b"Next" not in resp.data
+        assert b"Previous" not in resp.data
+
+    def test_totals_reflect_all_items_not_just_page(self, auth_client):
+        _insert_policies(15)  # 15 x $10/month = $150 total
+        resp = auth_client.get("/policies?page=1&per_page=10")
+        assert b"$150.00" in resp.data  # total across all pages
+
+    def test_pagination_preserved_with_filters(self, auth_client):
+        _insert_policies(15)
+        resp = auth_client.get("/policies?category=Insurance&page=2")
+        assert resp.status_code == 200
+
+    def test_out_of_range_page_clamps_to_last(self, auth_client):
+        _insert_policies(5)
+        resp = auth_client.get("/policies?page=999")
+        assert resp.status_code == 200

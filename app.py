@@ -353,6 +353,12 @@ def policies():
     sort_column = get_valid_sort(sort_param, POLICIES_SORTABLE_COLUMNS, 'end_date')
     sort_order = get_valid_order(order_param, 'asc')
 
+    # Extract and validate pagination parameters
+    page = request.args.get('page', 1, type=int)
+    per_page = request.args.get('per_page', 10, type=int)
+    if per_page not in [10, 25, 50, 100]:
+        per_page = 10
+
     conn = get_db()
     c = conn.cursor()
 
@@ -399,11 +405,23 @@ def policies():
     if expiry_filters:
         policies_with_days = apply_expiry_filter(policies_with_days, expiry_filters)
 
+    # Calculate totals across all (unfiltered by page) results
+    total_monthly = sum(p['monthly_amount'] or 0 for p in policies_with_days)
+    total_annual = sum(p['annual_amount'] or 0 for p in policies_with_days)
+    total_balance = sum(p['remaining_balance'] or 0 for p in policies_with_days)
+
+    # Paginate
+    policies_total = len(policies_with_days)
+    total_pages = (policies_total + per_page - 1) // per_page if policies_total else 1
+    page = max(1, min(page, total_pages))
+    start = (page - 1) * per_page
+    paginated_policies = policies_with_days[start:start + per_page]
+
     # Get provider list for filter dropdown
     providers = get_unique_providers()
 
     return render_template('index.html',
-                          policies=policies_with_days,
+                          policies=paginated_policies,
                           categories=categories,
                           providers=providers,
                           selected_categories=category_filters,
@@ -411,7 +429,14 @@ def policies():
                           selected_expiry=expiry_filters,
                           selected_amount=amount_range,
                           current_sort=sort_param,
-                          current_order=sort_order)
+                          current_order=sort_order,
+                          page=page,
+                          per_page=per_page,
+                          policies_total=policies_total,
+                          total_pages=total_pages,
+                          total_monthly=total_monthly,
+                          total_annual=total_annual,
+                          total_balance=total_balance)
 
 @app.route('/calendar')
 @login_required
