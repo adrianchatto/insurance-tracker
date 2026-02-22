@@ -15,6 +15,17 @@ app.secret_key = os.environ.get('SECRET_KEY', 'your-secret-key-here')
 # Application version
 VERSION = "2.1.0"
 
+# Release notes
+RELEASE_NOTES_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'release_notes.json')
+
+def load_release_notes():
+    try:
+        with open(RELEASE_NOTES_PATH) as f:
+            notes = json.load(f)
+        return sorted(notes, key=lambda x: [int(p) for p in x['version'].split('.')], reverse=True)
+    except (FileNotFoundError, json.JSONDecodeError, KeyError, ValueError):
+        return []
+
 # Database configuration
 DB_PATH = os.environ.get('DB_PATH', '/data/policies.db')
 
@@ -183,7 +194,7 @@ init_db()
 
 @app.context_processor
 def inject_now():
-    return {'now': datetime.now(), 'version': VERSION}
+    return {'now': datetime.now(), 'version': VERSION, 'release_notes': load_release_notes()}
 
 @app.template_filter('format_currency')
 def format_currency(value):

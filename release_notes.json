@@ -1,0 +1,36 @@
+[
+  {
+    "version": "2.1.0",
+    "date": "2026-02-22",
+    "changes": [
+      "Added pagination to Policies page with configurable items per page (10/25/50/100)",
+      "Fixed friendly name field not populated when editing a policy",
+      "Added Net Worth tracking with ISA and pension support",
+      "Added assets and liabilities breakdown charts to Net Worth page",
+      "Added clickable version number with this release notes viewer"
+    ]
+  },
+  {
+    "version": "2.0.0",
+    "date": "2025-06-01",
+    "changes": [
+      "Added comprehensive budget tracker with income, expenses, and savings",
+      "Added filtering and sorting for policies and expenses",
+      "Added table sorting functionality across all list views",
+      "Added calendar timeline view for policy visualisation",
+      "Added month/year timescale toggle to calendar view",
+      "Added category colours and totals row",
+      "Moved search box from navigation to page headers"
+    ]
+  },
+  {
+    "version": "1.0.0",
+    "date": "2024-01-01",
+    "changes": [
+      "Initial release of Policy Tracker",
+      "Policy management with renewal tracking",
+      "Dashboard with expiry notifications",
+      "Multi-user support with admin roles"
+    ]
+  }
+]
